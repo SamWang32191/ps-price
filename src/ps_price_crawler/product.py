@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from ps_price_crawler.catalog import _id_from_ref, _price_info
-from ps_price_crawler.models import ProductDetail
+from ps_price_crawler.models import PriceInfo, ProductDetail
 from ps_price_crawler.next_data import extract_embedded_state
 
 
@@ -31,9 +31,7 @@ def parse_product_detail(html: str, concept_id: str) -> ProductDetail:
         raw_price = concept["price"]
     else:
         raw_price = None
-    if not isinstance(raw_price, dict) or not raw_price:
-        raise ValueError("Missing required Product.price")
-    price = _price_info(raw_price)
+    price = _price_from_raw_or_download_cta(raw_price, product)
     if price is None:
         raise ValueError("Missing required Product.price")
 
@@ -48,6 +46,28 @@ def parse_product_detail(html: str, concept_id: str) -> ProductDetail:
         top_category=_required_str(product, "topCategory", "Product"),
         price=price,
     )
+
+
+def _price_from_raw_or_download_cta(raw_price: Any, product: dict[str, Any]) -> PriceInfo | None:
+    if isinstance(raw_price, dict) and raw_price:
+        return _price_info(raw_price)
+    if raw_price is None and _has_download_cta(product):
+        return PriceInfo(
+            base_price="免費",
+            discounted_price="免費",
+            discount_text=None,
+            is_free=True,
+            is_exclusive=False,
+            is_tied_to_subscription=False,
+        )
+    return None
+
+
+def _has_download_cta(product: dict[str, Any]) -> bool:
+    webctas = product.get("webctas")
+    if not isinstance(webctas, list):
+        return False
+    return any(isinstance(cta, dict) and cta.get("type") == "DOWNLOAD" for cta in webctas)
 
 
 def _combined_cache(env_scripts: dict[str, dict[str, Any]]) -> dict[str, Any]:

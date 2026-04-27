@@ -349,6 +349,18 @@ def test_parse_product_detail_requires_price():
         raise AssertionError("Expected missing price to raise ValueError")
 
 
+def test_parse_product_detail_infers_free_price_from_download_cta():
+    payload = _concept_payload()
+    del payload["cache"][PRODUCT_KEY]["price"]
+    payload["cache"][PRODUCT_KEY]["webctas"] = [{"type": "DOWNLOAD"}]
+
+    detail = parse_product_detail(_concept_html(payload), concept_id="223118")
+
+    assert detail.price is not None
+    assert detail.price.is_free is True
+    assert detail.price.discounted_price == "免費"
+
+
 def test_parse_product_detail_rejects_empty_price():
     payload = _concept_payload()
     payload["cache"][PRODUCT_KEY]["price"] = {}

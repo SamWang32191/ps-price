@@ -4,7 +4,19 @@ from ps_price_crawler.catalog import parse_catalog_page
 
 
 def _catalog_html() -> str:
-    apollo_state = {
+    apollo_state = _catalog_apollo_state()
+    next_data = {
+        "props": {
+            "pageProps": {
+                "apolloState": apollo_state,
+            }
+        }
+    }
+    return _html_with_next_data(next_data)
+
+
+def _catalog_apollo_state() -> dict:
+    return {
         "CategoryGrid:28c9:zh-hant-tw:0:24": {
             "__typename": "CategoryGrid",
             "id": "28c9",
@@ -49,13 +61,9 @@ def _catalog_html() -> str:
             "products": [{"__ref": "Product:HP0000-PPSA00000_00-SAROS0000000000:zh-hant-tw"}],
         },
     }
-    next_data = {
-        "props": {
-            "pageProps": {
-                "apolloState": apollo_state,
-            }
-        }
-    }
+
+
+def _html_with_next_data(next_data: dict) -> str:
     return f"""
     <html>
       <script id=\"__NEXT_DATA__\" type=\"application/json\">{json.dumps(next_data)}</script>
@@ -124,3 +132,12 @@ def test_parse_catalog_requires_concept_refs():
         assert "concepts" in str(exc)
     else:
         raise AssertionError("Expected missing concepts to raise ValueError")
+
+
+def test_parse_catalog_reads_apollo_state_from_props():
+    html = _html_with_next_data({"props": {"apolloState": _catalog_apollo_state()}})
+
+    page = parse_catalog_page(html, source_url="https://store.playstation.com/zh-hant-tw/category/28c9/1")
+
+    assert page.category_id == "28c9"
+    assert len(page.items) == 2

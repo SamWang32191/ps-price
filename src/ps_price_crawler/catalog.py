@@ -9,11 +9,11 @@ from ps_price_crawler.next_data import extract_embedded_state
 
 def parse_catalog_page(html: str, source_url: str) -> CatalogPage:
     state = extract_embedded_state(html)
-    apollo_state = (
-        state.next_data.get("props", {})
-        .get("pageProps", {})
-        .get("apolloState", {})
-    )
+    props = state.next_data.get("props", {})
+    page_props = props.get("pageProps", {}) if isinstance(props, dict) else {}
+    apollo_state = page_props.get("apolloState") if isinstance(page_props, dict) else None
+    if apollo_state is None and isinstance(props, dict):
+        apollo_state = props.get("apolloState", {})
     if not isinstance(apollo_state, dict):
         raise ValueError("Missing apolloState in catalog page")
 
