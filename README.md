@@ -21,3 +21,12 @@ pytest
 ps-price-crawler catalog --pages 2 --save-fixtures tests/fixtures/live
 ps-price-crawler concept 223118 --save-fixtures tests/fixtures/live
 ```
+
+## Data source notes
+
+The crawler spike starts from PlayStation Store Taiwan SSR pages:
+
+- catalog: `/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/{page}`
+- concept detail: `/zh-hant-tw/concept/{conceptId}`
+
+The parser reads embedded `__NEXT_DATA__` and `env:*` JSON script payloads. This is a non-public implementation detail of the PlayStation Store website, so parser failures are treated as expected maintenance events.
