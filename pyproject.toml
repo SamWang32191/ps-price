@@ -1,0 +1,30 @@
+[project]
+name = "ps-price"
+version = "0.1.0"
+description = "Self-hosted PlayStation Store Taiwan price tracker"
+requires-python = ">=3.12"
+dependencies = [
+  "beautifulsoup4>=4.12.3",
+  "httpx>=0.27.2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.3",
+  "pytest-httpx>=0.30.0",
+]
+
+[project.scripts]
+ps-price-crawler = "ps_price_crawler.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ps_price_crawler"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
