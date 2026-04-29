@@ -1,17 +1,17 @@
 # ps-price
 
-Self-hosted PlayStation Store Taiwan price tracker.
+自架的 PlayStation Store 台灣價格追蹤器。
 
-## Current milestone
+## 目前里程碑
 
-The first milestone is a crawler spike. It validates that Taiwan PlayStation Store SSR pages expose enough embedded JSON to parse:
+第一個里程碑是 crawler spike，用來驗證 PlayStation Store 台灣 SSR 頁面是否暴露足夠的嵌入式 JSON，可解析出：
 
-- catalog page totals and concept IDs
-- concept/product names
-- platform and product category fields
-- visible public price fields
+- 型錄頁總數與 concept ID
+- concept / product 名稱
+- 平台與 product 類別欄位
+- 可見的公開價格欄位
 
-## Spike commands
+## Spike 指令
 
 ```bash
 python -m venv .venv
@@ -22,11 +22,11 @@ ps-price-crawler catalog --pages 2 --save-fixtures tests/fixtures/live
 ps-price-crawler concept 223118 --save-fixtures tests/fixtures/live
 ```
 
-## Data source notes
+## 資料來源備註
 
-The crawler spike starts from PlayStation Store Taiwan SSR pages:
+crawler spike 從 PlayStation Store 台灣 SSR 頁面開始：
 
-- catalog: `/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/{page}`
-- concept detail: `/zh-hant-tw/concept/{conceptId}`
+- 型錄：`/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/{page}`
+- concept 詳情：`/zh-hant-tw/concept/{conceptId}`
 
-The parser reads embedded `__NEXT_DATA__` and `env:*` JSON script payloads. This is a non-public implementation detail of the PlayStation Store website, so parser failures are treated as expected maintenance events.
+parser 會讀取嵌入的 `__NEXT_DATA__` 與 `env:*` JSON script payload。這是 PlayStation Store 網站的非公開實作細節，因此 parser 失效會被視為預期內的維護事件。
