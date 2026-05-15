@@ -410,7 +410,7 @@ Wave 5: Task 8 docs/handoff and final verification readiness.
 
   **Commit**: YES | Message: `feat(crawler): report normalized fixture coverage` | Files: [`src/ps_price_crawler/cli.py`, `tests/test_cli_json.py`]
 
-- [ ] 8. Documentation update and Django data-foundation handoff
+- [x] 8. Documentation update and Django data-foundation handoff
 
   **What to do**: Update `README.md` and `docs/spikes/ps-store-crawler-spike.md` so the repo no longer reads like an unfinished spike with known gaps hanging off it like loose wires. Document canonical `uv` setup, offline tests, live fixture refresh commands, source strategy, fixture coverage, CI policy, and the exact next milestone: Django data foundation only after crawler contract stabilization is verified. Add a “Next milestone input” section listing fields Django models can rely on and fields still treated as source-risk.
   **Must NOT do**: Do not create the Django plan here and do not edit files outside documentation/README unless a verification command in this task requires a tiny import-path fix. This task is the handoff, not the sequel.
