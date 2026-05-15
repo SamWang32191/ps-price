@@ -274,7 +274,7 @@ Wave 5: Task 8 docs/handoff and final verification readiness.
 
   **Commit**: YES | Message: `test(crawler): add deterministic price fixtures` | Files: [`tests/fixtures/ps_store/`, `tests/test_fixture_contract.py`, `docs/spikes/ps-store-crawler-spike.md` if raw exclusions are documented]
 
-- [ ] 5. Parser hardening and normalized integration
+- [x] 5. Parser hardening and normalized integration
 
   **What to do**: Wire `price_contract.py` into catalog and product parsing so parser outputs can produce normalized price states from real fixtures. Add typed parse errors in `src/ps_price_crawler/errors.py`: `CrawlerParseError`, `MissingEmbeddedStateError`, `MissingRequiredFieldError`, `AmbiguousCacheEntryError`. Replace random `ValueError` confetti in `next_data.py`, `catalog.py`, and `product.py` with these typed errors while preserving message specificity. Add tests for malformed `__NEXT_DATA__`, malformed/missing `env:*`, duplicate catalog entries, product price missing on detail but present in catalog, and `DOWNLOAD` CTA free inference.
   **Must NOT do**: Do not change public CLI behavior except where tests require clearer error propagation. Do not invent database fields. Parser hardening is not an invitation to sneak in an ORM wearing a trench coat.
@@ -318,7 +318,7 @@ Wave 5: Task 8 docs/handoff and final verification readiness.
 
   **Commit**: YES | Message: `fix(crawler): normalize price parser states` | Files: [`src/ps_price_crawler/errors.py`, `src/ps_price_crawler/next_data.py`, `src/ps_price_crawler/catalog.py`, `src/ps_price_crawler/product.py`, `tests/test_next_data.py`, `tests/test_catalog.py`, `tests/test_product.py`, `tests/test_fixture_contract.py`]
 
-- [ ] 6. Snapshot source strategy decision and policy module
+- [x] 6. Snapshot source strategy decision and policy module
 
   **What to do**: Encode the milestone decision: **catalog-first, concept-detail fallback**. Create `src/ps_price_crawler/source_strategy.py` and `tests/test_source_strategy.py`. Policy: use catalog price for daily snapshot when normalized state is `FREE`, `PAID`, or `DISCOUNTED` and product IDs are present; fetch concept detail when catalog price is `UNKNOWN`, `PS_PLUS`, `UNAVAILABLE`, `NOT_PURCHASABLE`, product IDs are missing, or metadata needed for later Django fields (`publisher_name`, `release_date`, `top_category`) is absent. Document that full catalog detail backfill is out-of-scope; future sync should queue fallback detail fetches only for ambiguous/missing cases.
   **Must NOT do**: Do not implement scheduler, persistence, retry queue, or full 7,990-item detail crawl. The plan is choosing a steering wheel, not building a bus depot.
