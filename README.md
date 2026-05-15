@@ -13,13 +13,11 @@
 
 ## Spike 指令
 
+本 repo 以 `uv` 作為本機與 CI 共用的可重現驗證路徑。Task 1 的基準只跑離線測試，不執行即時 PlayStation Store 抓取或 fixture capture。
+
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[dev]"
-pytest
-ps-price-crawler catalog --pages 2 --save-fixtures tests/fixtures/live
-ps-price-crawler concept 223118 --save-fixtures tests/fixtures/live
+uv sync --extra dev
+uv run pytest -v
 ```
 
 ## 資料來源備註
