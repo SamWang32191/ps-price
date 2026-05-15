@@ -3,8 +3,15 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import urlparse
 
+from ps_price_crawler.errors import (
+    AmbiguousCacheEntryError,
+    CrawlerParseError,
+    MissingEmbeddedStateError,
+    MissingRequiredFieldError,
+)
 from ps_price_crawler.models import CatalogItem, CatalogPage, PriceInfo
 from ps_price_crawler.next_data import extract_embedded_state
+from ps_price_crawler.price_contract import NormalizedPrice, normalize_price_info
 
 
 def parse_catalog_page(html: str, source_url: str) -> CatalogPage:
@@ -15,13 +22,14 @@ def parse_catalog_page(html: str, source_url: str) -> CatalogPage:
     if apollo_state is None and isinstance(props, dict):
         apollo_state = props.get("apolloState", {})
     if not isinstance(apollo_state, dict):
-        raise ValueError("Missing apolloState in catalog page")
+        raise MissingRequiredFieldError("Missing required catalog page apolloState")
 
     source_category_id = _category_id_from_source_url(source_url)
     grid_key, grid = _find_category_grid(apollo_state, source_category_id)
     page_info = _required_mapping(grid, "pageInfo", "CategoryGrid")
     concept_refs = _required_list(grid, "concepts", "CategoryGrid")
     items = tuple(_catalog_item_from_ref(apollo_state, ref) for ref in concept_refs)
+    _reject_duplicate_catalog_items(items)
 
     return CatalogPage(
         source_url=source_url,
@@ -31,6 +39,14 @@ def parse_catalog_page(html: str, source_url: str) -> CatalogPage:
         size=_required_int(page_info, "size", "pageInfo"),
         is_last=bool(_required_value(page_info, "isLast", "pageInfo")),
         items=items,
+    )
+
+
+def normalize_catalog_item_price(item: CatalogItem) -> NormalizedPrice:
+    return normalize_price_info(
+        item.price,
+        source="catalog",
+        raw_missing_reason="Catalog item price block missing" if item.price is None else None,
     )
 
 
@@ -51,8 +67,8 @@ def _find_category_grid(
     if len(matches) == 1:
         return matches[0]
     if not matches:
-        raise ValueError("Catalog page does not contain a CategoryGrid entry")
-    raise ValueError("Catalog page contains multiple CategoryGrid entries but none matched source URL")
+        raise MissingEmbeddedStateError("Catalog page does not contain a CategoryGrid entry")
+    raise AmbiguousCacheEntryError("Catalog page contains multiple CategoryGrid entries but none matched source URL")
 
 
 def _category_id_from_source_url(source_url: str) -> str | None:
@@ -69,14 +85,14 @@ def _category_id_from_source_url(source_url: str) -> str | None:
 def _category_id_from_key(key: str) -> str:
     parts = key.split(":")
     if len(parts) < 2:
-        raise ValueError(f"Cannot parse CategoryGrid key: {key}")
+        raise CrawlerParseError(f"Cannot parse CategoryGrid key: {key}")
     return parts[1]
 
 
 def _catalog_item_from_ref(apollo_state: dict[str, Any], ref: dict[str, str]) -> CatalogItem:
     concept_key = _required_value(ref, "__ref", "concept ref")
     concept = _required_mapping(apollo_state, str(concept_key), "apolloState")
-    product_ids = tuple(_id_from_ref(product_ref["__ref"]) for product_ref in concept.get("products", []))
+    product_ids = _product_ids_from_concept(concept, str(concept_key))
     return CatalogItem(
         concept_id=str(_required_value(concept, "id", str(concept_key))),
         name=str(_required_value(concept, "name", str(concept_key))),
@@ -84,6 +100,45 @@ def _catalog_item_from_ref(apollo_state: dict[str, Any], ref: dict[str, str]) ->
         image_url=_master_image_url(concept),
         price=_price_info(concept.get("price")),
     )
+
+
+def _reject_duplicate_catalog_items(items: tuple[CatalogItem, ...]) -> None:
+    seen: set[str] = set()
+    for item in items:
+        identifier = f"Concept:{item.concept_id}"
+        if identifier in seen:
+            raise AmbiguousCacheEntryError(f"Duplicate {identifier} catalog entry")
+        seen.add(identifier)
+
+
+def _product_ids_from_concept(concept: dict[str, Any], context: str) -> tuple[str, ...]:
+    product_refs = concept.get("products", [])
+    if product_refs is None:
+        return ()
+    if not isinstance(product_refs, list):
+        raise MissingRequiredFieldError(f"Expected {context}.products to be a list")
+
+    product_ids = tuple(_product_id_from_ref(product_ref, context) for product_ref in product_refs)
+    _reject_duplicate_product_ids(product_ids, context)
+    return product_ids
+
+
+def _product_id_from_ref(product_ref: Any, context: str) -> str:
+    if not isinstance(product_ref, dict):
+        raise MissingRequiredFieldError(f"Expected {context}.products entry to be an object")
+    ref = _required_value(product_ref, "__ref", f"{context}.products")
+    if not isinstance(ref, str):
+        raise MissingRequiredFieldError(f"Expected {context}.products.__ref to be a Product reference")
+    return _id_from_ref(ref)
+
+
+def _reject_duplicate_product_ids(product_ids: tuple[str, ...], context: str) -> None:
+    seen: set[str] = set()
+    for product_id in product_ids:
+        identifier = f"Product:{product_id}"
+        if identifier in seen:
+            raise AmbiguousCacheEntryError(f"Duplicate {identifier} entry in {context}.products")
+        seen.add(identifier)
 
 
 def _id_from_ref(ref: str) -> str:
@@ -132,7 +187,7 @@ def _service_branding(raw_price: dict[str, Any]) -> tuple[str, ...]:
 def _required_mapping(mapping: dict[str, Any], key: str, context: str) -> dict[str, Any]:
     value = _required_value(mapping, key, context)
     if not isinstance(value, dict):
-        raise ValueError(f"Expected {context}.{key} to be an object")
+        raise MissingRequiredFieldError(f"Expected {context}.{key} to be an object")
     return value
 
 
@@ -143,11 +198,11 @@ def _required_int(mapping: dict[str, Any], key: str, context: str) -> int:
 def _required_list(mapping: dict[str, Any], key: str, context: str) -> list[Any]:
     value = _required_value(mapping, key, context)
     if not isinstance(value, list):
-        raise ValueError(f"Expected {context}.{key} to be a list")
+        raise MissingRequiredFieldError(f"Expected {context}.{key} to be a list")
     return value
 
 
 def _required_value(mapping: dict[str, Any], key: str, context: str) -> Any:
     if key not in mapping or mapping[key] is None:
-        raise ValueError(f"Missing required {context}.{key}")
+        raise MissingRequiredFieldError(f"Missing required {context}.{key}")
     return mapping[key]

@@ -1,10 +1,18 @@
 import json
 
+from ps_price_crawler import product as product_parser
+from ps_price_crawler.models import PriceInfo
 from ps_price_crawler.product import parse_product_detail
 
 PRODUCT_ID = "UP1821-PPSA10990_00-1887411884729257"
 PRODUCT_KEY = f"Product:{PRODUCT_ID}"
 CONCEPT_KEY = "Concept:223118"
+
+
+def _assert_parse_error(exc: Exception, class_name: str, message_part: str) -> None:
+    assert type(exc).__name__ == class_name
+    assert any(base.__name__ == "CrawlerParseError" for base in type(exc).__mro__)
+    assert message_part in str(exc)
 
 
 def _concept_payload() -> dict:
@@ -177,10 +185,10 @@ def test_parse_product_detail_rejects_multiple_locale_concept_keys_without_exact
 
     try:
         parse_product_detail(_concept_html(payload), concept_id="223118")
-    except ValueError as exc:
-        assert "Multiple Concept" in str(exc)
+    except Exception as exc:
+        _assert_parse_error(exc, "AmbiguousCacheEntryError", "Multiple Concept")
     else:
-        raise AssertionError("Expected multiple locale concept keys to raise ValueError")
+        raise AssertionError("Expected multiple locale concept keys to raise a typed parse error")
 
 
 def test_parse_product_detail_prefers_exact_product_key():
@@ -209,10 +217,21 @@ def test_parse_product_detail_rejects_multiple_locale_product_keys_without_exact
 
     try:
         parse_product_detail(_concept_html(payload), concept_id="223118")
-    except ValueError as exc:
-        assert "Multiple Product" in str(exc)
+    except Exception as exc:
+        _assert_parse_error(exc, "AmbiguousCacheEntryError", "Multiple Product")
     else:
-        raise AssertionError("Expected multiple locale product keys to raise ValueError")
+        raise AssertionError("Expected multiple locale product keys to raise a typed parse error")
+
+
+def test_parse_product_detail_requires_env_embedded_state():
+    html = "<html><script id=\"__NEXT_DATA__\" type=\"application/json\">{}</script></html>"
+
+    try:
+        parse_product_detail(html, concept_id="223118")
+    except Exception as exc:
+        _assert_parse_error(exc, "MissingEmbeddedStateError", "env:*")
+    else:
+        raise AssertionError("Expected missing env:* state to raise a typed parse error")
 
 
 def test_parse_product_detail_requires_concept_name():
@@ -343,10 +362,31 @@ def test_parse_product_detail_requires_price():
 
     try:
         parse_product_detail(_concept_html(payload), concept_id="223118")
-    except ValueError as exc:
-        assert "price" in str(exc)
+    except Exception as exc:
+        _assert_parse_error(exc, "MissingRequiredFieldError", "Product.price")
     else:
-        raise AssertionError("Expected missing price to raise ValueError")
+        raise AssertionError("Expected missing price to raise a typed parse error")
+
+
+def test_parse_product_detail_uses_catalog_price_when_detail_price_missing():
+    payload = _concept_payload()
+    del payload["cache"][PRODUCT_KEY]["price"]
+    catalog_price = PriceInfo(
+        base_price="NT$1,690",
+        discounted_price="NT$1,690",
+        discount_text=None,
+        is_free=False,
+        is_exclusive=False,
+        is_tied_to_subscription=False,
+        service_branding=("NONE",),
+    )
+
+    detail = parse_product_detail(_concept_html(payload), concept_id="223118", catalog_price=catalog_price)
+    normalized = product_parser.normalize_product_detail_price(detail, source="catalog")
+
+    assert detail.price == catalog_price
+    assert normalized.state.value == "PAID"
+    assert normalized.source == "catalog"
 
 
 def test_parse_product_detail_infers_free_price_from_download_cta():
@@ -359,6 +399,7 @@ def test_parse_product_detail_infers_free_price_from_download_cta():
     assert detail.price is not None
     assert detail.price.is_free is True
     assert detail.price.discounted_price == "免費"
+    assert product_parser.normalize_product_detail_price(detail).state.value == "FREE"
 
 
 def test_parse_product_detail_rejects_empty_price():

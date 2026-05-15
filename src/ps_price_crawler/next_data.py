@@ -6,6 +6,8 @@ from typing import Any
 
 from bs4 import BeautifulSoup
 
+from ps_price_crawler.errors import MissingEmbeddedStateError
+
 
 JsonObject = dict[str, Any]
 
@@ -25,7 +27,7 @@ def extract_embedded_state(html: str) -> EmbeddedState:
         script_id = script.get("id")
         if not script_id or not script_id.startswith("env:"):
             continue
-        payload = _loads_script_text(script.get_text())
+        payload = _loads_script_text(script.get_text(), script_id)
         if payload is not None:
             env_scripts[script_id] = payload
 
@@ -36,14 +38,17 @@ def _load_json_script(soup: BeautifulSoup, script_id: str) -> JsonObject | None:
     script = soup.find("script", id=script_id)
     if script is None:
         return None
-    return _loads_script_text(script.get_text())
+    return _loads_script_text(script.get_text(), script_id)
 
 
-def _loads_script_text(raw_text: str) -> JsonObject | None:
+def _loads_script_text(raw_text: str, script_id: str) -> JsonObject | None:
     text = raw_text.strip()
     if not text:
         return None
-    loaded = json.loads(text)
+    try:
+        loaded = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise MissingEmbeddedStateError(f"Malformed {script_id} embedded JSON: {exc.msg}") from exc
     if not isinstance(loaded, dict):
-        raise ValueError("Expected embedded JSON script to contain an object")
+        raise MissingEmbeddedStateError(f"Expected {script_id} embedded JSON script to contain an object")
     return loaded

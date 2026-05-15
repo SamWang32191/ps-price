@@ -2,6 +2,10 @@ import hashlib
 import json
 from pathlib import Path
 
+from ps_price_crawler.models import PriceInfo
+from ps_price_crawler.price_contract import normalize_price_info
+from ps_price_crawler.product import parse_product_detail
+
 
 FIXTURE_DIR = Path("tests/fixtures/ps_store")
 
@@ -49,6 +53,22 @@ def _fixture_payloads() -> list[dict]:
     json_files = sorted(FIXTURE_DIR.glob("concept_*.json"))
     assert json_files, f"No committed fixture JSON files found in {FIXTURE_DIR}"
     return [json.loads(path.read_text(encoding="utf-8")) for path in json_files]
+
+
+def _catalog_price_from_fixture(fixture: dict) -> PriceInfo | None:
+    fields = fixture["catalog_price_fields"]
+    if fields["basePrice"] is None and fields["discountedPrice"] is None:
+        return None
+    return PriceInfo(
+        base_price=fields["basePrice"],
+        discounted_price=fields["discountedPrice"],
+        discount_text=fields["discountText"],
+        is_free=bool(fields["isFree"]),
+        is_exclusive=bool(fields["isExclusive"]),
+        is_tied_to_subscription=bool(fields["isTiedToSubscription"]),
+        service_branding=tuple(fields["serviceBranding"]),
+        upsell_text=fields["upsellText"],
+    )
 
 
 def test_committed_fixture_set_covers_required_target_keys_and_states():
@@ -106,3 +126,34 @@ def test_fixture_parser_outcomes_are_explicit_without_tracebacks():
         assert parser_error == expected["parser_error"]
         assert fixture["product_detail"] is None
         assert "Traceback" not in parser_error["message"]
+
+
+def test_fixture_html_normalizes_price_states_with_catalog_evidence():
+    for fixture in _fixture_payloads():
+        catalog_price = _catalog_price_from_fixture(fixture)
+        catalog_normalized = normalize_price_info(
+            catalog_price,
+            source="catalog",
+            raw_missing_reason="Catalog item price block missing" if catalog_price is None else None,
+        )
+
+        assert catalog_normalized.state.value == fixture["normalized_state"]
+
+        if not fixture["raw_html_committed"]:
+            continue
+
+        html = (FIXTURE_DIR / fixture["raw_html_fixture"]).read_text(encoding="utf-8")
+        try:
+            detail = parse_product_detail(
+                html,
+                concept_id=fixture["concept_id"],
+                catalog_price=catalog_price,
+            )
+        except Exception as exc:
+            assert fixture["target_key"] == "missing_or_unavailable_candidate"
+            assert type(exc).__name__ == "MissingRequiredFieldError"
+            assert "Concept.defaultProduct" in str(exc)
+            continue
+
+        normalized = normalize_price_info(detail.price, source="product_detail")
+        assert normalized.state.value == fixture["normalized_state"]

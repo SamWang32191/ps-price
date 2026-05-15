@@ -45,3 +45,9 @@
 - Added pure source strategy policy in `src/ps_price_crawler/source_strategy.py`: `FREE`, `PAID`, and `DISCOUNTED` catalog prices with product IDs use catalog as the snapshot source.
 - Detail fallback reason codes are explicit for Task 7 JSON reuse: missing product IDs, `UNKNOWN`/`PS_PLUS`/`UNAVAILABLE`/`NOT_PURCHASABLE` states, and applicable missing future metadata fields.
 - Current raw `CatalogItem` does not carry `publisher_name`, `release_date`, or `top_category`; Task 6 treats those future metadata checks as applicable only when an enriched catalog object exposes the fields.
+
+## 2026-05-15 Task 5
+- Parser failures now use `CrawlerParseError` subclasses rooted in `ValueError`, preserving existing broad `ValueError` catches while enabling typed assertions for embedded-state, required-field, and ambiguous-cache failures.
+- `catalog.normalize_catalog_item_price()` and `product.normalize_product_detail_price()` keep normalized price states outside raw dataclasses while letting parser outputs feed `price_contract.py` directly.
+- `parse_product_detail(..., catalog_price=...)` intentionally uses catalog price evidence only when detail `Product.price`/`Concept.price` is absent; empty detail price objects still raise `MissingRequiredFieldError` instead of falling through and pretending the data is fine.
+- Deterministic fixture HTML now verifies exact normalized states with catalog evidence, so paid/discounted/PS Plus detail pages missing `Product.price` are handled without fake prices.

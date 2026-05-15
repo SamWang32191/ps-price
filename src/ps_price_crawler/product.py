@@ -3,13 +3,23 @@ from __future__ import annotations
 from typing import Any
 
 from ps_price_crawler.catalog import _id_from_ref, _price_info
+from ps_price_crawler.errors import (
+    AmbiguousCacheEntryError,
+    MissingEmbeddedStateError,
+    MissingRequiredFieldError,
+)
 from ps_price_crawler.models import PriceInfo, ProductDetail
 from ps_price_crawler.next_data import extract_embedded_state
+from ps_price_crawler.price_contract import NormalizedPrice, normalize_price_info
 
 
-def parse_product_detail(html: str, concept_id: str) -> ProductDetail:
+def parse_product_detail(html: str, concept_id: str, *, catalog_price: PriceInfo | None = None) -> ProductDetail:
     state = extract_embedded_state(html)
+    if not state.env_scripts:
+        raise MissingEmbeddedStateError("Missing env:* embedded state for product detail")
     cache = _combined_cache(state.env_scripts)
+    if not cache:
+        raise MissingEmbeddedStateError("Missing env:* cache in product detail embedded state")
     concept = _find_concept(cache, concept_id)
     product = _default_product(cache, concept)
 
@@ -18,13 +28,13 @@ def parse_product_detail(html: str, concept_id: str) -> ProductDetail:
     else:
         release_date = _concept_release_date(concept)
     if not isinstance(release_date, str) or not release_date:
-        raise ValueError("Missing required Product.releaseDate")
+        raise MissingRequiredFieldError("Missing required Product.releaseDate")
     if "publisherName" in product:
         publisher_name = product["publisherName"]
     else:
         publisher_name = concept.get("publisherName")
     if not isinstance(publisher_name, str) or not publisher_name:
-        raise ValueError("Missing required Product.publisherName")
+        raise MissingRequiredFieldError("Missing required Product.publisherName")
     if "price" in product:
         raw_price = product["price"]
     elif "price" in concept:
@@ -32,8 +42,10 @@ def parse_product_detail(html: str, concept_id: str) -> ProductDetail:
     else:
         raw_price = None
     price = _price_from_raw_or_download_cta(raw_price, product)
+    if price is None and raw_price is None and catalog_price is not None:
+        price = catalog_price
     if price is None:
-        raise ValueError("Missing required Product.price")
+        raise MissingRequiredFieldError("Missing required Product.price")
 
     return ProductDetail(
         concept_id=_required_str(concept, "id", f"Concept:{concept_id}"),
@@ -48,6 +60,14 @@ def parse_product_detail(html: str, concept_id: str) -> ProductDetail:
     )
 
 
+def normalize_product_detail_price(detail: ProductDetail, *, source: str = "product_detail") -> NormalizedPrice:
+    return normalize_price_info(
+        detail.price,
+        source=source,
+        raw_missing_reason="Product.price missing" if detail.price is None else None,
+    )
+
+
 def _price_from_raw_or_download_cta(raw_price: Any, product: dict[str, Any]) -> PriceInfo | None:
     if isinstance(raw_price, dict) and raw_price:
         return _price_info(raw_price)
@@ -59,6 +79,8 @@ def _price_from_raw_or_download_cta(raw_price: Any, product: dict[str, Any]) -> 
             is_free=True,
             is_exclusive=False,
             is_tied_to_subscription=False,
+            service_branding=(),
+            upsell_text=None,
         )
     return None
 
@@ -72,18 +94,21 @@ def _has_download_cta(product: dict[str, Any]) -> bool:
 
 def _combined_cache(env_scripts: dict[str, dict[str, Any]]) -> dict[str, Any]:
     combined: dict[str, Any] = {}
-    for payload in env_scripts.values():
+    for script_id, payload in env_scripts.items():
         cache = payload.get("cache")
-        if isinstance(cache, dict):
-            for key, value in cache.items():
-                if (
-                    key in combined
-                    and isinstance(combined[key], dict)
-                    and isinstance(value, dict)
-                ):
-                    combined[key] = {**combined[key], **value}
-                else:
-                    combined[key] = value
+        if cache is None:
+            continue
+        if not isinstance(cache, dict):
+            raise MissingEmbeddedStateError(f"Expected {script_id}.cache to be an object")
+        for key, value in cache.items():
+            if (
+                key in combined
+                and isinstance(combined[key], dict)
+                and isinstance(value, dict)
+            ):
+                combined[key] = {**combined[key], **value}
+            else:
+                combined[key] = value
     return combined
 
 
@@ -91,7 +116,7 @@ def _find_concept(cache: dict[str, Any], concept_id: str) -> dict[str, Any]:
     concept = _find_cache_entry(cache, "Concept", concept_id)
     if concept is not None:
         return concept
-    raise ValueError(f"Concept {concept_id} not found in embedded env cache")
+    raise MissingEmbeddedStateError(f"Concept {concept_id} not found in embedded env cache")
 
 
 def _default_product(cache: dict[str, Any], concept: dict[str, Any]) -> dict[str, Any]:
@@ -101,16 +126,16 @@ def _default_product(cache: dict[str, Any], concept: dict[str, Any]) -> dict[str
     if product is not None:
         return product
 
-    raise ValueError(f"Product {product_id} not found in embedded env cache")
+    raise MissingEmbeddedStateError(f"Product {product_id} not found in embedded env cache")
 
 
 def _product_id_from_default_ref(default_product: dict[str, Any]) -> str:
     product_ref = _required_value(default_product, "__ref", "Concept.defaultProduct")
     if not isinstance(product_ref, str):
-        raise ValueError("Expected Concept.defaultProduct.__ref to be a Product reference")
+        raise MissingRequiredFieldError("Expected Concept.defaultProduct.__ref to be a Product reference")
     parts = product_ref.split(":")
     if len(parts) != 2 or parts[0] != "Product" or not parts[1]:
-        raise ValueError("Expected Concept.defaultProduct.__ref to be a Product reference")
+        raise MissingRequiredFieldError("Expected Concept.defaultProduct.__ref to be a Product reference")
     return _id_from_ref(product_ref)
 
 
@@ -121,14 +146,15 @@ def _find_cache_entry(cache: dict[str, Any], typename: str, entity_id: str) -> d
         return exact_value
 
     suffix_matches = [
-        value
+        (key, value)
         for key, value in cache.items()
         if key.startswith(f"{prefix}:") and isinstance(value, dict)
     ]
     if len(suffix_matches) == 1:
-        return suffix_matches[0]
+        return suffix_matches[0][1]
     if len(suffix_matches) > 1:
-        raise ValueError(f"Multiple {typename} cache entries found for {entity_id}")
+        identifiers = ", ".join(key for key, _ in suffix_matches)
+        raise AmbiguousCacheEntryError(f"Multiple {typename} cache entries found for {entity_id}: {identifiers}")
     return None
 
 
@@ -145,25 +171,25 @@ def _concept_release_date(concept: dict[str, Any]) -> str | None:
 def _required_mapping(mapping: dict[str, Any], key: str, context: str) -> dict[str, Any]:
     value = _required_value(mapping, key, context)
     if not isinstance(value, dict):
-        raise ValueError(f"Expected {context}.{key} to be an object")
+        raise MissingRequiredFieldError(f"Expected {context}.{key} to be an object")
     return value
 
 
 def _required_non_empty_list(mapping: dict[str, Any], key: str, context: str) -> list[Any]:
     value = _required_value(mapping, key, context)
     if not isinstance(value, list) or not value:
-        raise ValueError(f"Expected {context}.{key} to be a non-empty list")
+        raise MissingRequiredFieldError(f"Expected {context}.{key} to be a non-empty list")
     return value
 
 
 def _required_str(mapping: dict[str, Any], key: str, context: str) -> str:
     value = _required_value(mapping, key, context)
     if not isinstance(value, str) or not value:
-        raise ValueError(f"Expected {context}.{key} to be a non-empty string")
+        raise MissingRequiredFieldError(f"Expected {context}.{key} to be a non-empty string")
     return value
 
 
 def _required_value(mapping: dict[str, Any], key: str, context: str) -> Any:
     if key not in mapping or mapping[key] is None:
-        raise ValueError(f"Missing required {context}.{key}")
+        raise MissingRequiredFieldError(f"Missing required {context}.{key}")
     return mapping[key]

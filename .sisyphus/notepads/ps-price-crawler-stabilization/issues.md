@@ -29,3 +29,6 @@
 - `lsp_diagnostics` for `tests/test_fixture_contract.py` could not run because `basedpyright-langserver` is not installed; pytest and size/status evidence were used as executable verification instead.
 - Current concept detail payloads for paid `10002075`, discounted `231761`, and PS Plus `10014149` lack `Product.price`; fixtures document `ValueError: Missing required Product.price` for Task 5 hardening rather than faking values.
 - Missing/unavailable target `10014992` has `Concept.defaultProduct` as `None`; fixture documents `ValueError: Missing required Concept.defaultProduct`.
+
+## 2026-05-15 Task 5
+- `lsp_diagnostics` remains blocked for all modified Python files because `basedpyright-langserver` is not installed in this environment; Task 5 verification used the required `uv run pytest ...` evidence files instead.

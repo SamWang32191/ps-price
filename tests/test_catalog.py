@@ -1,6 +1,13 @@
 import json
 
+from ps_price_crawler import catalog as catalog_parser
 from ps_price_crawler.catalog import parse_catalog_page
+
+
+def _assert_parse_error(exc: Exception, class_name: str, message_part: str) -> None:
+    assert type(exc).__name__ == class_name
+    assert any(base.__name__ == "CrawlerParseError" for base in type(exc).__mro__)
+    assert message_part in str(exc)
 
 
 def _catalog_html() -> str:
@@ -151,3 +158,55 @@ def test_parse_catalog_reads_apollo_state_from_props():
 
     assert page.category_id == "28c9"
     assert len(page.items) == 2
+
+
+def test_parse_catalog_normalizes_item_price_state():
+    page = parse_catalog_page(_catalog_html(), source_url="https://store.playstation.com/zh-hant-tw/category/28c9/1")
+
+    normalized = catalog_parser.normalize_catalog_item_price(page.items[0])
+
+    assert normalized.state.value == "FREE"
+    assert normalized.source == "catalog"
+    assert normalized.discounted_amount_cents == 0
+
+
+def test_parse_catalog_normalizes_missing_price_as_unknown_with_reason():
+    apollo_state = _catalog_apollo_state()
+    del apollo_state["Concept:223118:zh-hant-tw"]["price"]
+    html = _html_with_next_data({"props": {"pageProps": {"apolloState": apollo_state}}})
+
+    page = parse_catalog_page(html, source_url="https://store.playstation.com/zh-hant-tw/category/28c9/1")
+    normalized = catalog_parser.normalize_catalog_item_price(page.items[0])
+
+    assert normalized.state.value == "UNKNOWN"
+    assert normalized.raw_missing_reason == "Catalog item price block missing"
+
+
+def test_parse_catalog_rejects_duplicate_concept_entries():
+    apollo_state = _catalog_apollo_state()
+    apollo_state["CategoryGrid:28c9:zh-hant-tw:0:24"]["concepts"].append(
+        {"__ref": "Concept:223118:zh-hant-tw"}
+    )
+    html = _html_with_next_data({"props": {"pageProps": {"apolloState": apollo_state}}})
+
+    try:
+        parse_catalog_page(html, source_url="https://store.playstation.com/zh-hant-tw/category/28c9/1")
+    except Exception as exc:
+        _assert_parse_error(exc, "AmbiguousCacheEntryError", "Concept:223118")
+    else:
+        raise AssertionError("Expected duplicate catalog concept entries to raise a typed parse error")
+
+
+def test_parse_catalog_rejects_duplicate_product_entries_on_concept():
+    apollo_state = _catalog_apollo_state()
+    apollo_state["Concept:223118:zh-hant-tw"]["products"].append(
+        {"__ref": "Product:UP1821-PPSA10990_00-1887411884729257:zh-hant-tw"}
+    )
+    html = _html_with_next_data({"props": {"pageProps": {"apolloState": apollo_state}}})
+
+    try:
+        parse_catalog_page(html, source_url="https://store.playstation.com/zh-hant-tw/category/28c9/1")
+    except Exception as exc:
+        _assert_parse_error(exc, "AmbiguousCacheEntryError", "Product:UP1821-PPSA10990_00-1887411884729257")
+    else:
+        raise AssertionError("Expected duplicate catalog product entries to raise a typed parse error")
