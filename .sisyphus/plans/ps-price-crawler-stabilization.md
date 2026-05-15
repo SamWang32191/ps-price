@@ -361,7 +361,7 @@ Wave 5: Task 8 docs/handoff and final verification readiness.
 
   **Commit**: YES | Message: `docs(crawler): choose snapshot source strategy` | Files: [`src/ps_price_crawler/source_strategy.py`, `tests/test_source_strategy.py`, `docs/spikes/ps-store-crawler-spike.md`]
 
-- [ ] 7. CLI JSON output and fixture report contract
+- [x] 7. CLI JSON output and fixture report contract
 
   **What to do**: Turn the spike CLI into a reliable verification/reporting interface without adding persistence. Add `--format text|json` to `catalog` and `concept` commands. JSON output must include normalized price state, concept ID, product IDs, selected source strategy, and parser error objects for failed items. Add `fixture-report --fixtures tests/fixtures/ps_store --output .sisyphus/evidence/task-7-fixture-report.json` to summarize committed fixtures and states. Existing text output should remain backward-compatible enough that README examples still make sense.
   **Must NOT do**: Do not add database writes, scheduler flags, or background crawling. CLI is a microscope here, not a forklift.
