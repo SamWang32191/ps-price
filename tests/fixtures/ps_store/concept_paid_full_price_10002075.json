@@ -1,0 +1,33 @@
+{
+  "catalog_price_fields": {
+    "basePrice": "NT$1,690",
+    "discountText": null,
+    "discountedPrice": "NT$1,690",
+    "isExclusive": false,
+    "isFree": false,
+    "isTiedToSubscription": false,
+    "normalizedState": "PAID",
+    "serviceBranding": [
+      "NONE"
+    ],
+    "upsellText": null
+  },
+  "catalog_source_url": "https://store.playstation.com/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/1",
+  "concept_id": "10002075",
+  "name": "PRAGMATA",
+  "normalized_state": "PAID",
+  "parser_error": {
+    "message": "Missing required Product.price",
+    "type": "ValueError"
+  },
+  "product_detail": null,
+  "raw_html_committed": true,
+  "raw_html_fixture": "concept_paid_full_price_10002075.html",
+  "raw_html_live_path": "tests/fixtures/live/concept_paid_full_price_10002075.html",
+  "raw_html_omitted_reason": null,
+  "raw_html_sha256": "7c9d2425a61d3c1443b51eaef0bb8fdc7ab1d372183754ecaf8acf5b63ff449b",
+  "raw_html_size_bytes": 586531,
+  "source_url": "https://store.playstation.com/zh-hant-tw/concept/10002075",
+  "target_key": "paid_full_price",
+  "target_reason": "catalog price normalized as PAID"
+}

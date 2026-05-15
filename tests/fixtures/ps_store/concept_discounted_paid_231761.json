@@ -1,0 +1,33 @@
+{
+  "catalog_price_fields": {
+    "basePrice": "NT$1,575",
+    "discountText": "-40%",
+    "discountedPrice": "NT$945",
+    "isExclusive": false,
+    "isFree": false,
+    "isTiedToSubscription": false,
+    "normalizedState": "DISCOUNTED",
+    "serviceBranding": [
+      "NONE"
+    ],
+    "upsellText": null
+  },
+  "catalog_source_url": "https://store.playstation.com/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/1",
+  "concept_id": "231761",
+  "name": "《暗黑破壞神® IV》",
+  "normalized_state": "DISCOUNTED",
+  "parser_error": {
+    "message": "Missing required Product.price",
+    "type": "ValueError"
+  },
+  "product_detail": null,
+  "raw_html_committed": true,
+  "raw_html_fixture": "concept_discounted_paid_231761.html",
+  "raw_html_live_path": "tests/fixtures/live/concept_discounted_paid_231761.html",
+  "raw_html_omitted_reason": null,
+  "raw_html_sha256": "87cabc68e43cedb65b8ad4ba8ae7d03b86c3d78dde61f328c1b70fb9c3cb3c4d",
+  "raw_html_size_bytes": 627632,
+  "source_url": "https://store.playstation.com/zh-hant-tw/concept/231761",
+  "target_key": "discounted_paid",
+  "target_reason": "catalog price normalized as DISCOUNTED"
+}

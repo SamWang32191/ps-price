@@ -1,0 +1,32 @@
+{
+  "catalog_price_fields": {
+    "basePrice": null,
+    "discountText": null,
+    "discountedPrice": null,
+    "isExclusive": null,
+    "isFree": null,
+    "isTiedToSubscription": null,
+    "normalizedState": "UNKNOWN",
+    "rawMissingReason": "Catalog item price block missing",
+    "serviceBranding": [],
+    "upsellText": null
+  },
+  "catalog_source_url": "https://store.playstation.com/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/22",
+  "concept_id": "10014992",
+  "name": "Mafia Boss Simulator",
+  "normalized_state": "UNKNOWN",
+  "parser_error": {
+    "message": "Missing required Concept.defaultProduct",
+    "type": "ValueError"
+  },
+  "product_detail": null,
+  "raw_html_committed": true,
+  "raw_html_fixture": "concept_missing_or_unavailable_candidate_10014992.html",
+  "raw_html_live_path": "tests/fixtures/live/concept_missing_or_unavailable_candidate_10014992.html",
+  "raw_html_omitted_reason": null,
+  "raw_html_sha256": "aab8c05a36e40b08488341ef714c0da48691e36a0d5a826af77d899aa984051a",
+  "raw_html_size_bytes": 176400,
+  "source_url": "https://store.playstation.com/zh-hant-tw/concept/10014992",
+  "target_key": "missing_or_unavailable_candidate",
+  "target_reason": "catalog price normalized as UNKNOWN"
+}

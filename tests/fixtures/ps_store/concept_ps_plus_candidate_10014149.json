@@ -1,0 +1,34 @@
+{
+  "catalog_price_fields": {
+    "basePrice": "NT$2,090",
+    "discountText": null,
+    "discountedPrice": "NT$2,090",
+    "isExclusive": false,
+    "isFree": false,
+    "isTiedToSubscription": false,
+    "normalizedState": "PS_PLUS",
+    "serviceBranding": [
+      "NONE",
+      "PS_PLUS"
+    ],
+    "upsellText": "高級"
+  },
+  "catalog_source_url": "https://store.playstation.com/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/1",
+  "concept_id": "10014149",
+  "name": "《NBA 2K26》",
+  "normalized_state": "PS_PLUS",
+  "parser_error": {
+    "message": "Missing required Product.price",
+    "type": "ValueError"
+  },
+  "product_detail": null,
+  "raw_html_committed": true,
+  "raw_html_fixture": "concept_ps_plus_candidate_10014149.html",
+  "raw_html_live_path": "tests/fixtures/live/concept_ps_plus_candidate_10014149.html",
+  "raw_html_omitted_reason": null,
+  "raw_html_sha256": "9fff20c831d2809b71c65191d99aa4af316923a7b93c956ace3e728a1eb914a3",
+  "raw_html_size_bytes": 875987,
+  "source_url": "https://store.playstation.com/zh-hant-tw/concept/10014149",
+  "target_key": "ps_plus_candidate",
+  "target_reason": "catalog price normalized as PS_PLUS"
+}

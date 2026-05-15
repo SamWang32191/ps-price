@@ -1,0 +1,5 @@
+html_files=5
+total_bytes=2786699
+per_file_limit_bytes=2097152
+total_limit_bytes=10485760
+status=PASS

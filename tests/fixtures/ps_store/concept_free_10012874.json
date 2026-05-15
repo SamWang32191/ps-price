@@ -1,0 +1,57 @@
+{
+  "catalog_price_fields": {
+    "basePrice": "免費",
+    "discountText": null,
+    "discountedPrice": "免費",
+    "isExclusive": false,
+    "isFree": true,
+    "isTiedToSubscription": false,
+    "normalizedState": "FREE",
+    "serviceBranding": [
+      "NONE"
+    ],
+    "upsellText": null
+  },
+  "catalog_source_url": "https://store.playstation.com/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/1",
+  "concept_id": "10012874",
+  "name": "異環",
+  "normalized_state": "FREE",
+  "parser_error": null,
+  "product_detail": {
+    "concept_id": "10012874",
+    "concept_name": "異環",
+    "platforms": [
+      "PS5"
+    ],
+    "price_fields": {
+      "baseAmountCents": 0,
+      "basePrice": "免費",
+      "currency": "TWD",
+      "discountText": null,
+      "discountedAmountCents": 0,
+      "discountedPrice": "免費",
+      "isExclusive": false,
+      "isFree": true,
+      "isTiedToSubscription": false,
+      "normalizedState": "FREE",
+      "plusAmountCents": null,
+      "rawMissingReason": null,
+      "serviceBranding": [],
+      "upsellText": null
+    },
+    "product_id": "UB1244-PPSA26558_00-PWRDNTEGB0000000",
+    "product_name": "異環 (簡體中文, 韓文, 英文, 繁體中文, 日文)",
+    "publisher_name": "Perfect Entertainment Co., LTD.",
+    "release_date": "2026-04-29T02:00:00Z",
+    "top_category": "GAME"
+  },
+  "raw_html_committed": true,
+  "raw_html_fixture": "concept_free_10012874.html",
+  "raw_html_live_path": "tests/fixtures/live/concept_free_10012874.html",
+  "raw_html_omitted_reason": null,
+  "raw_html_sha256": "236f159c0392d74a6380797899f05b77cae38335327d5474b2ef6b9b23649651",
+  "raw_html_size_bytes": 513622,
+  "source_url": "https://store.playstation.com/zh-hant-tw/concept/10012874",
+  "target_key": "free",
+  "target_reason": "catalog price normalized as FREE"
+}

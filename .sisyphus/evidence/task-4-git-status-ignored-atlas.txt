@@ -1,0 +1,9 @@
+?? .sisyphus/
+?? tests/fixtures/
+?? tests/test_fixture_contract.py
+!! .pytest_cache/
+!! .venv/
+!! .worktrees/
+!! src/ps_price_crawler/__pycache__/
+!! tests/__pycache__/
+!! tests/fixtures/live/
