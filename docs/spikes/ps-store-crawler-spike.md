@@ -35,4 +35,11 @@ Date: 2026-04-27
 - Confirm a discounted paid product fixture.
 - Confirm a PS Plus price fixture.
 - Confirm an unavailable or non-purchasable product fixture.
-- Decide whether catalog page price is sufficient for daily price snapshots or whether every concept detail page must be fetched.
+
+## Snapshot Source Strategy Decision
+
+Daily price snapshots use a **catalog-first, concept-detail fallback** policy. Catalog page prices are sufficient for the daily snapshot when the normalized catalog state is `FREE`, `PAID`, or `DISCOUNTED` and the catalog item includes product IDs. These states are already explicit enough for `PriceSnapshot` values without treating concept detail pages as the source of truth.
+
+Concept detail should be fetched only when the catalog data is ambiguous or incomplete: normalized state `UNKNOWN`, `PS_PLUS`, `UNAVAILABLE`, or `NOT_PURCHASABLE`; missing product IDs; or missing later Django metadata fields such as `publisher_name`, `release_date`, or `top_category` when those fields are part of an enriched catalog handoff. This preserves detail pages for cases where they answer a concrete question instead of turning every sync into a 7,990-item pilgrimage.
+
+Full concept-detail backfill is out of scope for this milestone. Future sync work should queue targeted detail fetches for fallback cases, not implement a full detail crawl or historical backfill here.

@@ -40,3 +40,8 @@
 - Raw HTML for all five concept detail pages was small enough to commit (`<= 2 MiB` each; total fixture directory `2,786,699` bytes), while duplicate live captures remain under ignored `tests/fixtures/live/`.
 - Fixture JSON uses catalog-derived `normalized_state`/`catalog_price_fields` as the target state contract and stores concept-detail parse output separately.
 - Existing product parser can fully parse the free target via `DOWNLOAD` CTA inference, but paid/discounted/PS Plus detail pages currently expose CTA data without Product.price, so those JSON fixtures preserve explicit parser errors instead of inventing price fields.
+
+## 2026-05-15 Task 6
+- Added pure source strategy policy in `src/ps_price_crawler/source_strategy.py`: `FREE`, `PAID`, and `DISCOUNTED` catalog prices with product IDs use catalog as the snapshot source.
+- Detail fallback reason codes are explicit for Task 7 JSON reuse: missing product IDs, `UNKNOWN`/`PS_PLUS`/`UNAVAILABLE`/`NOT_PURCHASABLE` states, and applicable missing future metadata fields.
+- Current raw `CatalogItem` does not carry `publisher_name`, `release_date`, or `top_category`; Task 6 treats those future metadata checks as applicable only when an enriched catalog object exposes the fields.
