@@ -24,7 +24,7 @@ requires = ["hatchling>=1.25.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ps_price_crawler"]
+packages = ["src/ps_price_crawler", "src/ps_price_site", "src/ps_price_sync"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
