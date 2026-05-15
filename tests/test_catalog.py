@@ -93,6 +93,16 @@ def test_parse_catalog_concepts():
     assert page.items[1].price.base_price == "NT$1,990"
 
 
+def test_parse_catalog_preserves_upsell_service_branding_for_plus_detection():
+    apollo_state = _catalog_apollo_state()
+    apollo_state["Concept:10005069:zh-hant-tw"]["price"]["upsellServiceBranding"] = ["PS_PLUS"]
+    html = _html_with_next_data({"props": {"pageProps": {"apolloState": apollo_state}}})
+
+    page = parse_catalog_page(html, source_url="https://store.playstation.com/zh-hant-tw/category/28c9/1")
+
+    assert page.items[1].price.service_branding == ("NONE", "PS_PLUS")
+
+
 def test_parse_catalog_selects_grid_matching_source_url():
     html = _catalog_html().replace(
         '"CategoryGrid:28c9:zh-hant-tw:0:24"',

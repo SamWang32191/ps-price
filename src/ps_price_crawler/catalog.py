@@ -114,9 +114,19 @@ def _price_info(raw_price: dict[str, Any] | None) -> PriceInfo | None:
         is_free=bool(raw_price.get("isFree")),
         is_exclusive=bool(raw_price.get("isExclusive")),
         is_tied_to_subscription=bool(raw_price.get("isTiedToSubscription")),
-        service_branding=tuple(raw_price.get("serviceBranding") or ()),
+        service_branding=_service_branding(raw_price),
         upsell_text=raw_price.get("upsellText"),
     )
+
+
+def _service_branding(raw_price: dict[str, Any]) -> tuple[str, ...]:
+    values: list[str] = []
+    for field in ("serviceBranding", "upsellServiceBranding"):
+        for value in raw_price.get(field) or ():
+            text = str(value)
+            if text not in values:
+                values.append(text)
+    return tuple(values)
 
 
 def _required_mapping(mapping: dict[str, Any], key: str, context: str) -> dict[str, Any]:
