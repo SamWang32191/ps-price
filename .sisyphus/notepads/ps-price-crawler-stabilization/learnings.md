@@ -58,3 +58,7 @@
 - Concept JSON has no catalog item context by design, so it reports a `concept_detail` source payload with a `no_catalog_item_context` limitation instead of inventing catalog strategy evidence.
 - `fixture-report` reads committed `tests/fixtures/ps_store/*.json` offline, reuses committed HTML when present, and writes state coverage plus product IDs, source strategy decisions, normalized prices, current parser errors, and preserved fixture parser errors.
 - Task 7 evidence showed committed fixture coverage states `DISCOUNTED`, `FREE`, `PAID`, `PS_PLUS`, and `UNKNOWN` in `.sisyphus/evidence/task-7-fixture-report.json`.
+
+- 2026-05-15 23:19:13 | 完成 Task 7 進度追蹤 commit：`chore: mark cli report task complete` (SHA: 56bce81)。
+  - 驗證：`git diff --cached` 僅包含 `.sisyphus/plans/...` Task7 checkbox 勾選 + `.sisyphus/evidence/task-7-fixture-report-atlas.json`（存在）。
+  - 驗證：`git status --short --ignored` 顯示 `tests/fixtures/live/` 保持 `!!` ignored，未被 staged/修改。
