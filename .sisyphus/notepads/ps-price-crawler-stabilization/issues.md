@@ -32,3 +32,6 @@
 
 ## 2026-05-15 Task 5
 - `lsp_diagnostics` remains blocked for all modified Python files because `basedpyright-langserver` is not installed in this environment; Task 5 verification used the required `uv run pytest ...` evidence files instead.
+
+## 2026-05-15 Task 7
+- `lsp_diagnostics` was attempted for `src/ps_price_crawler/cli.py` and `tests/test_cli_json.py`, but the environment still lacks `basedpyright-langserver`; verification used `uv run pytest tests/test_cli_json.py -v`, fixture-report JSON assertions, CLI help smoke, and full `uv run pytest -v` instead.

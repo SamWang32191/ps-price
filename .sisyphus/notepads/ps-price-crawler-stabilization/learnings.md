@@ -51,3 +51,10 @@
 - `catalog.normalize_catalog_item_price()` and `product.normalize_product_detail_price()` keep normalized price states outside raw dataclasses while letting parser outputs feed `price_contract.py` directly.
 - `parse_product_detail(..., catalog_price=...)` intentionally uses catalog price evidence only when detail `Product.price`/`Concept.price` is absent; empty detail price objects still raise `MissingRequiredFieldError` instead of falling through and pretending the data is fine.
 - Deterministic fixture HTML now verifies exact normalized states with catalog evidence, so paid/discounted/PS Plus detail pages missing `Product.price` are handled without fake prices.
+
+## 2026-05-15 Task 7
+- Added `--format text|json` to `catalog` and `concept`; text output keeps the existing line-oriented shape, while JSON output serializes normalized price objects, concept/product IDs, source strategy metadata, and typed parser error objects.
+- Catalog JSON can include failed page parser errors without aborting the whole report, keeping `pages` authoritative and `items` as the flattened successfully parsed catalog items.
+- Concept JSON has no catalog item context by design, so it reports a `concept_detail` source payload with a `no_catalog_item_context` limitation instead of inventing catalog strategy evidence.
+- `fixture-report` reads committed `tests/fixtures/ps_store/*.json` offline, reuses committed HTML when present, and writes state coverage plus product IDs, source strategy decisions, normalized prices, current parser errors, and preserved fixture parser errors.
+- Task 7 evidence showed committed fixture coverage states `DISCOUNTED`, `FREE`, `PAID`, `PS_PLUS`, and `UNKNOWN` in `.sisyphus/evidence/task-7-fixture-report.json`.

@@ -1,0 +1,292 @@
+{
+  "fixtures_dir": "tests/fixtures/ps_store",
+  "coverage": {
+    "states_present": [
+      "DISCOUNTED",
+      "FREE",
+      "PAID",
+      "PS_PLUS",
+      "UNKNOWN"
+    ],
+    "required_clear_states": [
+      "DISCOUNTED",
+      "FREE",
+      "PAID",
+      "PS_PLUS"
+    ],
+    "ambiguous_state_options": [
+      "NOT_PURCHASABLE",
+      "UNAVAILABLE",
+      "UNKNOWN"
+    ],
+    "missing_required_clear_states": [],
+    "has_ambiguous_or_unavailable_state": true,
+    "has_required_coverage": true
+  },
+  "fixtures": [
+    {
+      "file": "concept_discounted_paid_231761.json",
+      "target_key": "discounted_paid",
+      "concept_id": "231761",
+      "name": "《暗黑破壞神® IV》",
+      "source_url": "https://store.playstation.com/zh-hant-tw/concept/231761",
+      "catalog_source_url": "https://store.playstation.com/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/1",
+      "product_id": "UP0002-PPSA02442_00-DIVBASEGAME00000",
+      "product_ids": [
+        "UP0002-PPSA02442_00-DIVBASEGAME00000"
+      ],
+      "state": "DISCOUNTED",
+      "price": {
+        "state": "DISCOUNTED",
+        "currency": "TWD",
+        "base_amount_cents": 157500,
+        "discounted_amount_cents": 94500,
+        "plus_amount_cents": null,
+        "base_display": "NT$1,575",
+        "discounted_display": "NT$945",
+        "discount_text": "-40%",
+        "service_branding": [
+          "NONE"
+        ],
+        "upsell_text": null,
+        "source": "catalog",
+        "raw_missing_reason": null
+      },
+      "source_strategy": {
+        "source": "catalog",
+        "reason": "catalog_price_snapshot",
+        "reason_codes": [
+          "clear_catalog_price",
+          "product_ids_present"
+        ],
+        "normalized_state": "DISCOUNTED",
+        "product_ids": [
+          "UP0002-PPSA02442_00-DIVBASEGAME00000"
+        ],
+        "missing_metadata_fields": []
+      },
+      "parser_error": null,
+      "fixture_parser_error": {
+        "message": "Missing required Product.price",
+        "type": "ValueError"
+      },
+      "raw_html": {
+        "committed": true,
+        "fixture": "concept_discounted_paid_231761.html",
+        "sha256": "87cabc68e43cedb65b8ad4ba8ae7d03b86c3d78dde61f328c1b70fb9c3cb3c4d",
+        "size_bytes": 627632,
+        "omitted_reason": null
+      }
+    },
+    {
+      "file": "concept_free_10012874.json",
+      "target_key": "free",
+      "concept_id": "10012874",
+      "name": "異環",
+      "source_url": "https://store.playstation.com/zh-hant-tw/concept/10012874",
+      "catalog_source_url": "https://store.playstation.com/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/1",
+      "product_id": "UB1244-PPSA26558_00-PWRDNTEGB0000000",
+      "product_ids": [
+        "UB1244-PPSA26558_00-PWRDNTEGB0000000"
+      ],
+      "state": "FREE",
+      "price": {
+        "state": "FREE",
+        "currency": "TWD",
+        "base_amount_cents": 0,
+        "discounted_amount_cents": 0,
+        "plus_amount_cents": null,
+        "base_display": "免費",
+        "discounted_display": "免費",
+        "discount_text": null,
+        "service_branding": [
+          "NONE"
+        ],
+        "upsell_text": null,
+        "source": "catalog",
+        "raw_missing_reason": null
+      },
+      "source_strategy": {
+        "source": "catalog",
+        "reason": "catalog_price_snapshot",
+        "reason_codes": [
+          "clear_catalog_price",
+          "product_ids_present"
+        ],
+        "normalized_state": "FREE",
+        "product_ids": [
+          "UB1244-PPSA26558_00-PWRDNTEGB0000000"
+        ],
+        "missing_metadata_fields": []
+      },
+      "parser_error": null,
+      "fixture_parser_error": null,
+      "raw_html": {
+        "committed": true,
+        "fixture": "concept_free_10012874.html",
+        "sha256": "236f159c0392d74a6380797899f05b77cae38335327d5474b2ef6b9b23649651",
+        "size_bytes": 513622,
+        "omitted_reason": null
+      }
+    },
+    {
+      "file": "concept_missing_or_unavailable_candidate_10014992.json",
+      "target_key": "missing_or_unavailable_candidate",
+      "concept_id": "10014992",
+      "name": "Mafia Boss Simulator",
+      "source_url": "https://store.playstation.com/zh-hant-tw/concept/10014992",
+      "catalog_source_url": "https://store.playstation.com/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/22",
+      "product_id": null,
+      "product_ids": [],
+      "state": "UNKNOWN",
+      "price": {
+        "state": "UNKNOWN",
+        "currency": null,
+        "base_amount_cents": null,
+        "discounted_amount_cents": null,
+        "plus_amount_cents": null,
+        "base_display": null,
+        "discounted_display": null,
+        "discount_text": null,
+        "service_branding": [],
+        "upsell_text": null,
+        "source": "catalog",
+        "raw_missing_reason": "Catalog item price block missing"
+      },
+      "source_strategy": {
+        "source": "concept_detail",
+        "reason": "missing_product_ids",
+        "reason_codes": [
+          "missing_product_ids",
+          "price_state_unknown"
+        ],
+        "normalized_state": "UNKNOWN",
+        "product_ids": [],
+        "missing_metadata_fields": []
+      },
+      "parser_error": {
+        "type": "MissingRequiredFieldError",
+        "message": "Missing required Concept.defaultProduct"
+      },
+      "fixture_parser_error": {
+        "message": "Missing required Concept.defaultProduct",
+        "type": "ValueError"
+      },
+      "raw_html": {
+        "committed": true,
+        "fixture": "concept_missing_or_unavailable_candidate_10014992.html",
+        "sha256": "aab8c05a36e40b08488341ef714c0da48691e36a0d5a826af77d899aa984051a",
+        "size_bytes": 176400,
+        "omitted_reason": null
+      }
+    },
+    {
+      "file": "concept_paid_full_price_10002075.json",
+      "target_key": "paid_full_price",
+      "concept_id": "10002075",
+      "name": "PRAGMATA",
+      "source_url": "https://store.playstation.com/zh-hant-tw/concept/10002075",
+      "catalog_source_url": "https://store.playstation.com/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/1",
+      "product_id": "UP0102-PPSA02530_00-PRAGMATA00000000",
+      "product_ids": [
+        "UP0102-PPSA02530_00-PRAGMATA00000000"
+      ],
+      "state": "PAID",
+      "price": {
+        "state": "PAID",
+        "currency": "TWD",
+        "base_amount_cents": 169000,
+        "discounted_amount_cents": 169000,
+        "plus_amount_cents": null,
+        "base_display": "NT$1,690",
+        "discounted_display": "NT$1,690",
+        "discount_text": null,
+        "service_branding": [
+          "NONE"
+        ],
+        "upsell_text": null,
+        "source": "catalog",
+        "raw_missing_reason": null
+      },
+      "source_strategy": {
+        "source": "catalog",
+        "reason": "catalog_price_snapshot",
+        "reason_codes": [
+          "clear_catalog_price",
+          "product_ids_present"
+        ],
+        "normalized_state": "PAID",
+        "product_ids": [
+          "UP0102-PPSA02530_00-PRAGMATA00000000"
+        ],
+        "missing_metadata_fields": []
+      },
+      "parser_error": null,
+      "fixture_parser_error": {
+        "message": "Missing required Product.price",
+        "type": "ValueError"
+      },
+      "raw_html": {
+        "committed": true,
+        "fixture": "concept_paid_full_price_10002075.html",
+        "sha256": "7c9d2425a61d3c1443b51eaef0bb8fdc7ab1d372183754ecaf8acf5b63ff449b",
+        "size_bytes": 586531,
+        "omitted_reason": null
+      }
+    },
+    {
+      "file": "concept_ps_plus_candidate_10014149.json",
+      "target_key": "ps_plus_candidate",
+      "concept_id": "10014149",
+      "name": "《NBA 2K26》",
+      "source_url": "https://store.playstation.com/zh-hant-tw/concept/10014149",
+      "catalog_source_url": "https://store.playstation.com/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/1",
+      "product_id": "UP1001-PPSA28420_00-NBA2K26000000000",
+      "product_ids": [
+        "UP1001-PPSA28420_00-NBA2K26000000000"
+      ],
+      "state": "PS_PLUS",
+      "price": {
+        "state": "PS_PLUS",
+        "currency": "TWD",
+        "base_amount_cents": 209000,
+        "discounted_amount_cents": 209000,
+        "plus_amount_cents": 209000,
+        "base_display": "NT$2,090",
+        "discounted_display": "NT$2,090",
+        "discount_text": null,
+        "service_branding": [
+          "NONE",
+          "PS_PLUS"
+        ],
+        "upsell_text": "高級",
+        "source": "catalog",
+        "raw_missing_reason": null
+      },
+      "source_strategy": {
+        "source": "concept_detail",
+        "reason": "price_state_ps_plus",
+        "reason_codes": [
+          "price_state_ps_plus"
+        ],
+        "normalized_state": "PS_PLUS",
+        "product_ids": [
+          "UP1001-PPSA28420_00-NBA2K26000000000"
+        ],
+        "missing_metadata_fields": []
+      },
+      "parser_error": null,
+      "fixture_parser_error": {
+        "message": "Missing required Product.price",
+        "type": "ValueError"
+      },
+      "raw_html": {
+        "committed": true,
+        "fixture": "concept_ps_plus_candidate_10014149.html",
+        "sha256": "9fff20c831d2809b71c65191d99aa4af316923a7b93c956ace3e728a1eb914a3",
+        "size_bytes": 875987,
+        "omitted_reason": null
+      }
+    }
+  ]
+}
