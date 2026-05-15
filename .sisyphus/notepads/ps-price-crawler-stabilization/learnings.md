@@ -62,3 +62,6 @@
 - 2026-05-15 23:19:13 | 完成 Task 7 進度追蹤 commit：`chore: mark cli report task complete` (SHA: 56bce81)。
   - 驗證：`git diff --cached` 僅包含 `.sisyphus/plans/...` Task7 checkbox 勾選 + `.sisyphus/evidence/task-7-fixture-report-atlas.json`（存在）。
   - 驗證：`git status --short --ignored` 顯示 `tests/fixtures/live/` 保持 `!!` ignored，未被 staged/修改。
+
+## 2026-05-15 Task 8
+- Raw Task 8 git status includes historical `.sisyphus/` evidence, `.sisyphus/boulder.json`, and `.sisyphus/run-continuation/` orchestration metadata outside the documentation scope. Wrote `.sisyphus/evidence/task-8-git-status-filtered.txt` with only project-scope changed paths before running the allowlist assertion.
