@@ -1,0 +1,2 @@
+fixture-targets skipped page=8 error=ValueError: Catalog page does not contain a CategoryGrid entry
+fixture-targets complete output=.sisyphus/evidence/task-3-fixture-targets.json

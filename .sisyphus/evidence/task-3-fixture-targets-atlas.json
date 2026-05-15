@@ -1,0 +1,97 @@
+{
+  "free": {
+    "concept_id": "10012874",
+    "name": "異環",
+    "source_url": "https://store.playstation.com/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/1",
+    "price_fields": {
+      "basePrice": "免費",
+      "discountedPrice": "免費",
+      "discountText": null,
+      "isFree": true,
+      "isExclusive": false,
+      "isTiedToSubscription": false,
+      "serviceBranding": [
+        "NONE"
+      ],
+      "upsellText": null,
+      "normalizedState": "FREE"
+    },
+    "reason": "catalog price normalized as FREE"
+  },
+  "paid_full_price": {
+    "concept_id": "10002075",
+    "name": "PRAGMATA",
+    "source_url": "https://store.playstation.com/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/1",
+    "price_fields": {
+      "basePrice": "NT$1,690",
+      "discountedPrice": "NT$1,690",
+      "discountText": null,
+      "isFree": false,
+      "isExclusive": false,
+      "isTiedToSubscription": false,
+      "serviceBranding": [
+        "NONE"
+      ],
+      "upsellText": null,
+      "normalizedState": "PAID"
+    },
+    "reason": "catalog price normalized as PAID"
+  },
+  "discounted_paid": {
+    "concept_id": "231761",
+    "name": "《暗黑破壞神® IV》",
+    "source_url": "https://store.playstation.com/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/1",
+    "price_fields": {
+      "basePrice": "NT$1,575",
+      "discountedPrice": "NT$945",
+      "discountText": "-40%",
+      "isFree": false,
+      "isExclusive": false,
+      "isTiedToSubscription": false,
+      "serviceBranding": [
+        "NONE"
+      ],
+      "upsellText": null,
+      "normalizedState": "DISCOUNTED"
+    },
+    "reason": "catalog price normalized as DISCOUNTED"
+  },
+  "ps_plus_candidate": {
+    "concept_id": "10014149",
+    "name": "《NBA 2K26》",
+    "source_url": "https://store.playstation.com/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/1",
+    "price_fields": {
+      "basePrice": "NT$2,090",
+      "discountedPrice": "NT$2,090",
+      "discountText": null,
+      "isFree": false,
+      "isExclusive": false,
+      "isTiedToSubscription": false,
+      "serviceBranding": [
+        "NONE",
+        "PS_PLUS"
+      ],
+      "upsellText": "高級",
+      "normalizedState": "PS_PLUS"
+    },
+    "reason": "catalog price normalized as PS_PLUS"
+  },
+  "missing_or_unavailable_candidate": {
+    "concept_id": "10014992",
+    "name": "Mafia Boss Simulator",
+    "source_url": "https://store.playstation.com/zh-hant-tw/category/28c9c2b2-cecc-415c-9a08-482a605cb104/22",
+    "price_fields": {
+      "basePrice": null,
+      "discountedPrice": null,
+      "discountText": null,
+      "isFree": null,
+      "isExclusive": null,
+      "isTiedToSubscription": null,
+      "serviceBranding": [],
+      "upsellText": null,
+      "normalizedState": "UNKNOWN",
+      "rawMissingReason": "Catalog item price block missing"
+    },
+    "reason": "catalog price normalized as UNKNOWN"
+  }
+}

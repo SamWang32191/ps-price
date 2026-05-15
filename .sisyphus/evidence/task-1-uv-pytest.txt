@@ -1,0 +1,14 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.14.5, pytest-9.0.3, pluggy-1.6.0
+rootdir: /Users/samwang/code/github.com/SamWang32191/ps-price
+configfile: pyproject.toml
+testpaths: tests
+plugins: httpx-0.36.2, anyio-4.13.0
+collected 47 items
+
+tests/test_catalog.py ......                                             [ 12%]
+tests/test_next_data.py ...                                              [ 19%]
+tests/test_price_contract.py ...........                                 [ 42%]
+tests/test_product.py ...........................                        [100%]
+
+============================== 47 passed in 0.07s ==============================

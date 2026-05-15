@@ -1,0 +1,23 @@
+Task 3 previous live discovery blocker RESOLVED.
+
+Previous blocker:
+- Earlier live discovery wrote .sisyphus/evidence/task-3-fixture-targets.json with `ps_plus_candidate: null`.
+- Earlier live output reported incomplete discovery and would exit 2.
+
+Root cause:
+- All-games catalog pages did contain PS Plus catalog-only evidence in raw price payloads.
+- The raw field was `upsellServiceBranding: ["PS_PLUS"]`.
+- `catalog._price_info()` only preserved `serviceBranding` and dropped `upsellServiceBranding`, so normalized price classification never saw the Plus signal.
+
+Fix:
+- `catalog._price_info()` now merges `serviceBranding` and `upsellServiceBranding` into `PriceInfo.service_branding` without fetching concept detail pages.
+- Regression test added: `tests/test_catalog.py::test_parse_catalog_preserves_upsell_service_branding_for_plus_detection`.
+
+Resolved live command:
+uv run ps-price-crawler fixture-targets --pages 80 --output .sisyphus/evidence/task-3-fixture-targets.json
+
+Resolved live evidence:
+- .sisyphus/evidence/task-3-live-discovery.txt reports `fixture-targets complete`.
+- .sisyphus/evidence/task-3-fixture-targets.json contains non-null values for all five required keys.
+
+Status: RESOLVED; this file is retained as historical blocker-resolution evidence, not an active blocker.

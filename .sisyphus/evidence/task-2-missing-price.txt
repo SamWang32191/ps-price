@@ -1,0 +1,17 @@
+Task: Task-2 missing-price targeted regression
+Command: uv run pytest tests/test_price_contract.py::test_missing_raw_price_returns_unknown_with_reason -v
+Result: PASS
+
+Exit code: 0
+
+Output:
+============================= test session starts ==============================
+platform darwin -- Python 3.14.5, pytest-9.0.3, pluggy-1.6.0
+rootdir: /Users/samwang/code/github.com/SamWang32191/ps-price
+configfile: pyproject.toml
+plugins: httpx-0.36.2, anyio-4.13.0
+collected 1 item
+
+tests/test_price_contract.py .                                           [100%]
+
+============================== 1 passed in 0.01s ==============================
