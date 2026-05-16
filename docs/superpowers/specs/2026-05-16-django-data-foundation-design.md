@@ -65,18 +65,30 @@
   - unique
 - `concept_id`
   - indexed
+  - 可為空，不作為落地必備條件
 - `product_name`
 - `concept_name`
+  - 保留來源的 concept 標籤，支援後續人工排查與群組比對
 - `publisher_name`
-- `release_date`
+  - 視為來源提供的 raw publisher string，不先正規化或拆成獨立資料表
+- `release_date_raw`
+  - 視為來源提供的 raw release date string，不做格式解析或回寫
 - `top_category`
+  - 視為來源提供的 raw category label，不等於站內本地分類
 - `image_url`
 - `source_url`
+  - 保存目前最穩定、可重新打開的商品頁 URL
+  - 採 last-non-empty-wins
 - `platforms_raw`
-  - 第一版先存 JSON text 或 CSV 字串，不先正規化成關聯表
+  - 第一版先存 JSON text，不先正規化成關聯表
 - `is_visible`
+  - 由 `Catalog Sync` 建立時可初始化為 true
+  - 若首次由 `Snapshot Sync` 建立，應先保持 unknown/null
 - `missing_count`
+  - 若已進入 `Catalog Sync` 追蹤，表示連續缺席次數
+  - 若首次由 `Snapshot Sync` 建立，應先保持 unknown/null
 - `last_seen_at`
+  - 只在 `Catalog Sync` 觀測到此 product 時更新
 - `created_at`
 - `updated_at`
 
@@ -84,14 +96,19 @@
 
 用途：保存單一商品單一天的價格狀態。
 
+這是日層級價格觀測結果，不是價格變更事件；`UNAVAILABLE`、`NOT_PURCHASABLE`、`PS_PLUS`、`UNKNOWN` 也屬於合法 snapshot。
+
 建議欄位：
 
 - `id`
 - `store_product`
   - foreign key to `StoreProduct`
 - `snapshot_date`
+  - 表示這次價格觀測要歸屬到哪一天的台北日期
 - `normalized_state`
 - `currency`
+  - 第一版保留欄位，允許為空
+  - 不在 schema 層強制只能是 `TWD`
 - `base_amount_cents`
 - `discounted_amount_cents`
 - `plus_amount_cents`
@@ -108,6 +125,11 @@
 - `created_at`
 - `updated_at`
 
+補充：
+
+- `PriceSnapshot` 不存 `source_url`；來源定位由 `StoreProduct` 與 `SyncError` 承擔
+- `source_strategy_source`、`source_strategy_reason`、`source_strategy_reason_codes_raw` 只在 `Snapshot Sync` 的 `PriceSnapshot` 寫入，不寫回 `StoreProduct`
+
 唯一限制：
 
 - `(store_product, snapshot_date)` unique
@@ -123,11 +145,18 @@
   - 例如 `catalog_only`、`snapshot_only`、`catalog_and_snapshot`
 - `status`
   - 例如 `running`、`succeeded`、`failed`、`partial`
+  - `succeeded`：沒有 `SyncError`
+  - `partial`：有成功落地，也有 `SyncError`
+  - `failed`：沒有任何成功落地，且有錯誤
 - `started_at`
 - `finished_at`
 - `success_count`
+  - `Catalog Sync` 表示成功落成或成功更新的 `Persisted Product` 數
+  - `Snapshot Sync` 表示成功寫入或成功更新的 `PriceSnapshot` 數
 - `error_count`
 - `summary`
+  - 保存結構化 JSON text，而不是自由文字摘要
+  - 至少應包含 `observed_items`、`persisted_products`、`skipped_missing_product_id`
 - `created_at`
 - `updated_at`
 
@@ -141,15 +170,23 @@
 - `sync_run`
   - foreign key to `SyncRun`
 - `stage`
-  - 例如 `catalog_ingestion`、`detail_ingestion`
+  - 第一版先收斂為 `catalog_ingestion`、`snapshot_ingestion`
 - `product_id`
 - `concept_id`
 - `source_url`
+  - 保存當次失敗實際涉及的來源 URL
 - `error_type`
 - `error_message`
 - `resolved_at`
+  - 只表示後續已成功重跑或已明確判定不再需要處理
 - `created_at`
 - `updated_at`
+
+唯一性原則：
+
+- 不對 `SyncError` 設定跨批次唯一鍵
+- 同一個 `product_id` 在不同 `SyncRun` 重複失敗時，應保留多筆歷史
+- 同一個 `SyncRun` 中不同 `stage` 的失敗，也應保留為不同錯誤紀錄
 
 ## Ingestion 流程
 
@@ -158,8 +195,6 @@
 輸入：
 
 - `CatalogPage`
-- 每個 item 對應的 `NormalizedPrice`
-- 每個 item 對應的 `SnapshotSourceDecision`
 - 目前的 `SyncRun`
 
 行為：
@@ -169,12 +204,25 @@
   - 不建立 `StoreProduct`。
   - 建立 `SyncError`。
   - 增加 `SyncRun.error_count`。
+  - 這只表示本次 `Catalog Sync` 無法落地，不表示未來 detail 路徑永遠不能建立此 product。
 - 若 item 有 `product_id`：
   - 以 `product_id` upsert `StoreProduct`。
   - 更新 `concept_id`、名稱、圖片、來源 URL、平台與可見性。
+  - `product_name` 與 `concept_name` 採 last-write-wins，但 detail 路徑優先於 catalog 路徑。
+  - `image_url` 採 last-non-empty-wins，不做歷史追蹤。
+  - `source_url` 採 last-non-empty-wins，並以可重新打開商品頁為優先。
+  - `platforms_raw` 採 last-non-empty-wins，只接受完整 JSON 陣列覆蓋，不做 union merge。
+  - `publisher_name` 採 last-non-empty-wins，維持 raw source string。
+  - `release_date_raw` 若出現在此路徑，採 last-non-empty-wins，且不做格式解析或回寫。
+  - 若此 product 先前只由 `Snapshot Sync` 建立，這次第一次被 `Catalog Sync` 觀測到時，`is_visible` 應更新為 true，`missing_count` 應初始化為 0。
   - 更新 `last_seen_at`。
   - 把 `missing_count` 重設為 0。
-- 這個 use case 不建立 `PriceSnapshot`，只處理商品主檔與 catalog 層級資訊。
+- 對於本次 `Catalog Sync` 未觀測到、但資料庫已存在的 `Product`：
+  - `is_visible` 應更新為 false
+  - `missing_count` 應遞增 1
+- 即使 catalog item 內含價格資訊，這個 use case 也不建立 `PriceSnapshot`。
+- 這個 use case 只處理商品主檔與 catalog 層級資訊。
+- `NormalizedPrice` 與 `SnapshotSourceDecision` 不屬於這個 use case 的輸入；如果要做 catalog coverage summary，應由 command 層另外統計。
 
 ### ingest_product_detail_snapshot
 
@@ -189,10 +237,51 @@
 行為：
 
 - 以 `product_id` 取得或建立 `StoreProduct`。
-- 補齊 `publisher_name`、`release_date`、`top_category`、`product_name`、`concept_name`。
+- 若 catalog 階段先前因缺 `product_id` 而未能落地，但這次 detail 已提供有效 `product_id`，仍應允許建立 `StoreProduct`。
+- 補齊 `publisher_name`、`release_date_raw`、`top_category`、`product_name`、`concept_name`。
+- `product_name` 與 `concept_name` 採 last-write-wins，且 detail 路徑優先於 catalog 路徑。
+- `image_url` 採 last-non-empty-wins，不做歷史追蹤。
+- `source_url` 採 last-non-empty-wins，並以可重新打開商品頁為優先。
+- `platforms_raw` 採 last-non-empty-wins，只接受完整 JSON 陣列覆蓋，不做 union merge。
+- `publisher_name` 採 last-non-empty-wins，維持 raw source string。
+- `release_date_raw` 採 last-non-empty-wins，且不做格式解析或回寫。
+- `top_category` 採 last-non-empty-wins，不做本地映射或保守 merge。
+- 若此 product 是第一次由 `Snapshot Sync` 建立，`is_visible` 與 `missing_count` 應保持 unknown/null，直到後續第一次 `Catalog Sync` 命中後才轉成 true / 0。
+- 不更新 `last_seen_at`，因為它只表示最近一次 `Catalog Sync` 的觀測時間。
 - 依 `(store_product, snapshot_date)` upsert `PriceSnapshot`。
 - 若同一天重跑：
   - 更新既有 snapshot，不新增第二筆。
+- 無論這次觀測是數字價格或非數字價格狀態，都應寫入 `PriceSnapshot`。
+- 寫入 source strategy 與原始顯示文字，保留後續除錯能力。
+
+### ingest_catalog_snapshot
+
+輸入：
+
+- `CatalogItem`
+- `NormalizedPrice`
+- `SnapshotSourceDecision`
+- `snapshot_date`
+- 目前的 `SyncRun`
+
+前提：
+
+- 只在 `SnapshotSourceDecision.source == "catalog"` 時使用
+
+行為：
+
+- 以 `product_id` 取得或建立 `StoreProduct`。
+- 若 catalog 階段已具備有效 `product_id`，應允許直接寫入 `PriceSnapshot`，不必強制先經過 detail。
+- `product_name` 與 `concept_name` 採 last-write-wins，但 detail 路徑優先於 catalog 路徑。
+- `image_url` 採 last-non-empty-wins，不做歷史追蹤。
+- `source_url` 採 last-non-empty-wins，並以可重新打開商品頁為優先。
+- `platforms_raw` 若此路徑沒有完整資料，允許維持既有值不覆蓋。
+- `publisher_name`、`release_date_raw`、`top_category` 若此路徑沒有完整資料，允許維持既有值不覆蓋。
+- 不更新 `last_seen_at`，因為它只表示最近一次 `Catalog Sync` 的觀測時間。
+- 依 `(store_product, snapshot_date)` upsert `PriceSnapshot`。
+- 若同一天重跑：
+  - 更新既有 snapshot，不新增第二筆。
+- 無論這次觀測是數字價格或非數字價格狀態，都應寫入 `PriceSnapshot`。
 - 寫入 source strategy 與原始顯示文字，保留後續除錯能力。
 
 ## Management Command
@@ -219,8 +308,9 @@
 - 單一商品 ingestion 失敗不應中斷整批同步。
 - 缺 `product_id` 視為可觀測資料缺口，不是 schema 例外。
 - parser 或 source strategy 傳入的錯誤型別與訊息應盡量原樣保存到 `SyncError`。
-- `SyncRun.summary` 應保存高層摘要，例如成功筆數、跳過筆數、主要錯誤類型統計。
+- `SyncRun.summary` 應保存結構化 JSON text，方便後續查詢、驗證與 UI 使用。
 - 本里程碑不做自動 retry queue；重跑策略先留給後續 command/admin 階段。
+- `created_at` 與 `updated_at` 只表示資料庫寫入時間，不表示資料新鮮度、來源日期或同步歸屬。
 
 ## 測試策略
 
