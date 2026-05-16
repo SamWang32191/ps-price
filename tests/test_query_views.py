@@ -221,3 +221,21 @@ def test_list_products_does_not_n_plus_one(django_assert_num_queries) -> None:
         result = list_products(ProductListFilters(page=1, page_size=50))
 
     assert result.total_count == 3
+
+
+@pytest.mark.django_db
+def test_build_chart_points_uses_only_general_numeric_prices() -> None:
+    product = _product()
+    paid = _snapshot(product, snapshot_date=date(2026, 5, 14), state="PAID", base=200000, discounted=200000)
+    discounted = _snapshot(product, snapshot_date=date(2026, 5, 15), state="DISCOUNTED", base=200000, discounted=100000)
+    _snapshot(product, snapshot_date=date(2026, 5, 16), state="PS_PLUS", base=200000, discounted=90000, plus=90000)
+
+    from ps_price_sync.services.query_views import build_chart_points
+
+    points = build_chart_points([paid, discounted])
+
+    assert len(points) == 2
+    assert points[0].snapshot_date == date(2026, 5, 14)
+    assert points[0].amount_cents == 200000
+    assert points[1].snapshot_date == date(2026, 5, 15)
+    assert points[1].amount_cents == 100000

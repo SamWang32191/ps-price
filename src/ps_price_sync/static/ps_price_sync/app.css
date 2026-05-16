@@ -59,6 +59,37 @@ main {
   background: white;
 }
 
+.chart-frame {
+  margin-top: 0.75rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 0.5rem;
+  overflow-x: auto;
+}
+
+.price-chart {
+  width: 100%;
+  max-width: 100%;
+  height: clamp(180px, 28vw, 320px);
+  min-height: 180px;
+  display: block;
+}
+
+.price-chart circle {
+  fill: #1f3f8d;
+  stroke: #fff;
+  stroke-width: 0.25;
+}
+
+.definition-grid dt {
+  color: #52607a;
+}
+
+.definition-grid dd {
+  margin: 0;
+  word-break: break-word;
+}
+
 .definition-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

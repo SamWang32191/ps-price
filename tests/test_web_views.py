@@ -221,6 +221,62 @@ def test_product_detail_returns_404_for_unknown_product(client) -> None:
     assert response.status_code == 404
 
 
+@pytest.mark.django_db
+def test_product_detail_renders_current_price_lows_chart_and_snapshot_table(client) -> None:
+    product = _web_product("P-detail-1", "Detail Game")
+    PriceSnapshot.objects.create(
+        store_product=product,
+        snapshot_date=date(2026, 5, 14),
+        normalized_state="PAID",
+        currency="TWD",
+        base_amount_cents=200000,
+        discounted_amount_cents=200000,
+        base_display="NT$2,000",
+        discounted_display="NT$2,000",
+        source_strategy_source="catalog",
+        source_strategy_reason="test",
+    )
+    PriceSnapshot.objects.create(
+        store_product=product,
+        snapshot_date=date(2026, 5, 15),
+        normalized_state="DISCOUNTED",
+        currency="TWD",
+        base_amount_cents=200000,
+        discounted_amount_cents=120000,
+        base_display="NT$2,000",
+        discounted_display="NT$1,200",
+        discount_text="限時優惠",
+        source_strategy_source="catalog",
+        source_strategy_reason="test",
+    )
+    PriceSnapshot.objects.create(
+        store_product=product,
+        snapshot_date=date(2026, 5, 16),
+        normalized_state="PS_PLUS",
+        currency="TWD",
+        base_amount_cents=200000,
+        discounted_amount_cents=90000,
+        plus_amount_cents=90000,
+        base_display="NT$2,000",
+        discounted_display="NT$900",
+        source_strategy_source="concept_detail",
+        source_strategy_reason="price_state_ps_plus",
+    )
+
+    response = client.get(reverse("product-detail", kwargs={"product_id": "P-detail-1"}))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Detail Game" in content
+    assert "一般歷史低價" in content
+    assert "NT$1,200" in content
+    assert "PS Plus 歷史低價" in content
+    assert "NT$900" in content
+    assert "<svg" in content
+    assert "每日價格紀錄" in content
+    assert "限時優惠" in content
+
+
 def test_twd_cents_template_filter_formats_integer_cents() -> None:
     from ps_price_sync.templatetags.price_format import twd_cents
 
