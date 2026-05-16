@@ -4,7 +4,7 @@
 
 ## 目前里程碑
 
-目前 repo 已完成 crawler contract stabilization、Django data foundation 與第一版 daily sync scheduler。這些階段把 PlayStation Store 台灣 SSR 頁面的 spike 收斂成 Django ingestion 可以讀的 crawler adapter contract，並提供可長駐執行的每日同步入口；UI 與 Docker Compose 尚未開始。
+目前 repo 已完成 crawler contract stabilization、Django data foundation 與第一版 daily sync scheduler，以及第一版 read-only Dashboard / 商品查詢介面；Docker Compose 尚未開始。這些階段把 PlayStation Store 台灣 SSR 頁面的 spike 收斂成 Django ingestion 可以讀的 crawler adapter contract，並提供可長駐執行的每日同步入口。
 
 已穩定的 crawler contract 包含：
 
