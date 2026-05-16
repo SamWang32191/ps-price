@@ -1,0 +1,13 @@
+.git/
+.github/
+.pytest_cache/
+.sisyphus/
+.venv/
+.worktrees/
+__pycache__/
+*.pyc
+.DS_Store
+.idea/
+db.sqlite3
+docs/
+tests/
