@@ -103,7 +103,7 @@ Daily price snapshots 採 catalog-first/detail-fallback。
 
 - normalized state 是 `UNKNOWN`、`PS_PLUS`、`UNAVAILABLE` 或 `NOT_PURCHASABLE`。
 - catalog item 缺 product IDs。
-- 後續 Django ingestion 需要 `publisher_name`、`release_date` 或 `top_category`，但 catalog 物件沒有這些欄位。
+- Django ingestion 需要 `publisher_name`、`release_date` 或 `top_category`，但 catalog 物件沒有這些欄位。
 
 這個策略避免把 7,990 個商品全部 detail backfill。全量 backfill 不是本里程碑的答案，硬做只會把 crawler 變成穿登山靴的資料庫 migration。
 
@@ -116,9 +116,9 @@ crawler 從 PlayStation Store 台灣 SSR 頁面讀資料：
 
 parser 會讀取嵌入的 `__NEXT_DATA__` 與 `env:*` JSON script payload。這是 PlayStation Store 網站的非公開實作細節，因此來源 schema drift 仍然是外部風險。typed parser errors 與 fixtures 只能讓壞掉時更早、更清楚地壞掉，不能把非公開來源變成合約 API，魔法還沒上班。
 
-## Next milestone input
+## Ingestion field inputs
 
-Django data foundation 可以先依賴這些 crawler fields：
+Django ingestion 目前依賴這些 crawler fields：
 
 - concept ID。
 - product IDs when present。
