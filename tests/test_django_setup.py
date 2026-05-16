@@ -4,6 +4,7 @@ from pathlib import Path
 from django.apps import apps
 from django.conf import settings
 from django.urls import resolve, reverse
+from ps_price_site import settings as project_settings
 
 
 def test_manage_py_exists() -> None:
@@ -40,3 +41,27 @@ def test_readme_mentions_django_sync_commands() -> None:
     readme_content = Path("README.md").read_text()
     assert "uv run python manage.py migrate" in readme_content
     assert "uv run python manage.py sync_ps_store --mode catalog-and-snapshot" in readme_content
+
+
+def test_database_name_defaults_to_repo_sqlite(monkeypatch) -> None:
+    monkeypatch.delenv("PS_PRICE_DATABASE_PATH", raising=False)
+
+    assert project_settings._database_name_from_env() == project_settings.BASE_DIR / "db.sqlite3"
+
+
+def test_database_name_uses_environment_path(monkeypatch) -> None:
+    monkeypatch.setenv("PS_PRICE_DATABASE_PATH", "/data/db.sqlite3")
+
+    assert project_settings._database_name_from_env() == "/data/db.sqlite3"
+
+
+def test_allowed_hosts_defaults_to_empty_list(monkeypatch) -> None:
+    monkeypatch.delenv("PS_PRICE_ALLOWED_HOSTS", raising=False)
+
+    assert project_settings._allowed_hosts_from_env() == []
+
+
+def test_allowed_hosts_parses_comma_separated_environment(monkeypatch) -> None:
+    monkeypatch.setenv("PS_PRICE_ALLOWED_HOSTS", "localhost, 127.0.0.1,,")
+
+    assert project_settings._allowed_hosts_from_env() == ["localhost", "127.0.0.1"]
