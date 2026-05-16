@@ -104,13 +104,28 @@ def next_run_at(now: datetime, settings: SchedulerSettings) -> datetime:
 
 
 def _scheduled_candidates(year: int, month: int, day: int, run_at: time, local_tz: ZoneInfo) -> list[datetime]:
-    candidates = [
-        datetime(year, month, day, run_at.hour, run_at.minute, tzinfo=local_tz, fold=fold)
-        for fold in (0, 1)
-    ]
-    return sorted(
-        {candidate.astimezone(dt_timezone.utc): candidate for candidate in candidates}.values(),
-        key=lambda candidate: candidate.astimezone(dt_timezone.utc),
+    candidates = []
+    seen_utc: set[datetime] = set()
+    for fold in (0, 1):
+        candidate = datetime(year, month, day, run_at.hour, run_at.minute, tzinfo=local_tz, fold=fold)
+        if not _is_valid_local_time(candidate):
+            continue
+        candidate_utc = candidate.astimezone(dt_timezone.utc)
+        if candidate_utc in seen_utc:
+            continue
+        candidates.append(candidate)
+        seen_utc.add(candidate_utc)
+    return sorted(candidates, key=lambda candidate: candidate.astimezone(dt_timezone.utc))
+
+
+def _is_valid_local_time(candidate: datetime) -> bool:
+    round_tripped = candidate.astimezone(dt_timezone.utc).astimezone(candidate.tzinfo)
+    return (
+        round_tripped.year == candidate.year
+        and round_tripped.month == candidate.month
+        and round_tripped.day == candidate.day
+        and round_tripped.hour == candidate.hour
+        and round_tripped.minute == candidate.minute
     )
 
 

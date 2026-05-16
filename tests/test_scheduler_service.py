@@ -177,6 +177,18 @@ def test_seconds_until_next_run_uses_elapsed_time_across_dst() -> None:
     assert scheduler.seconds_until_next_run(now, settings) == 3600.0
 
 
+def test_seconds_until_next_run_skips_nonexistent_dst_time() -> None:
+    settings = scheduler.SchedulerSettings(
+        mode="catalog-and-snapshot",
+        max_pages=500,
+        timezone_name="America/New_York",
+        run_at=time(2, 30),
+    )
+    now = datetime(2026, 3, 8, 1, 30, tzinfo=ZoneInfo("America/New_York"))
+
+    assert scheduler.seconds_until_next_run(now, settings) == 86400.0
+
+
 def test_seconds_until_next_run_uses_future_fold_across_dst() -> None:
     settings = scheduler.SchedulerSettings(
         mode="catalog-and-snapshot",
