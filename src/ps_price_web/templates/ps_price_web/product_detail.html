@@ -1,0 +1,78 @@
+{% extends "ps_price_web/base.html" %}
+{% load ps_price_web_extras %}
+
+{% block title %}{{ detail.product.product_name }} - PS Price{% endblock %}
+
+{% block content %}
+  <p><a href="{% url 'ps_price_web:deals' %}">← 返回特價清單</a></p>
+
+  <h1>{{ detail.product.product_name }}</h1>
+
+  {% if detail.product.image_url %}
+    <div>
+      <img src="{{ detail.product.image_url }}" alt="{{ detail.product.product_name }}">
+    </div>
+  {% endif %}
+
+  <div>概念：{{ detail.product.concept_name }}</div>
+  <div>發行商：{{ detail.product.publisher_name|default:"-" }}</div>
+  <div>平台：{{ detail.product.platforms_raw|raw_json_list }}</div>
+  <div>
+    PS Store：
+    {% if detail.product.source_url %}
+      <a href="{{ detail.product.source_url }}">前往商店</a>
+    {% else %}
+      -
+    {% endif %}
+  </div>
+
+  <section>
+    <h2>價格摘要</h2>
+    {% if detail.latest_snapshot %}
+      <p>最新狀態：{{ detail.latest_snapshot.normalized_state }}（{{ detail.latest_snapshot.snapshot_date|date:"Y-m-d" }}）</p>
+      <p>目前價格：{{ detail.current_price_amount_cents|money_twd:detail.current_price_display }}</p>
+    {% else %}
+      <p>尚無價格快照</p>
+    {% endif %}
+
+    {% if detail.regular_low_amount_cents is not None %}
+      <p>一般歷史最低價：{{ detail.regular_low_amount_cents|money_twd }}（{{ detail.regular_low_date|date:"Y-m-d" }}）</p>
+    {% else %}
+      <p>一般歷史最低價：-</p>
+    {% endif %}
+  </section>
+
+  <section>
+    <h2>每日價格紀錄</h2>
+    {% if detail.snapshots %}
+      <table>
+        <thead>
+          <tr>
+            <th>日期</th>
+            <th>狀態</th>
+            <th>原價</th>
+            <th>折扣價</th>
+            <th>PS Plus 價</th>
+            <th>折扣文字</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for snapshot in detail.snapshots %}
+            <tr>
+              <td>{{ snapshot.snapshot_date|date:"Y-m-d" }}</td>
+              <td>{{ snapshot.normalized_state }}</td>
+              <td>{{ snapshot.base_amount_cents|money_twd:snapshot.base_display }}</td>
+              <td>{{ snapshot.discounted_amount_cents|money_twd:snapshot.discounted_display }}</td>
+              <td>{{ snapshot.plus_amount_cents|money_twd }}</td>
+              <td>{{ snapshot.discount_text|default:"-" }}</td>
+              <td>{{ snapshot.source_strategy_source }} / {{ snapshot.source_strategy_reason }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty">尚無價格快照</div>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 
-from ps_price_web.queries import get_latest_deals
-
-from ps_price_sync.views import product_detail as _product_detail
+from ps_price_sync.models import StoreProduct
+from ps_price_web.queries import get_latest_deals, get_product_detail
 
 
 def deals_view(request: HttpRequest) -> HttpResponse:
@@ -19,4 +18,9 @@ def deals_view(request: HttpRequest) -> HttpResponse:
 
 
 def product_detail_view(request: HttpRequest, product_id: str) -> HttpResponse:
-    return _product_detail(request, product_id)
+    get_object_or_404(StoreProduct, product_id=product_id)
+    return render(
+        request,
+        "ps_price_web/product_detail.html",
+        {"detail": get_product_detail(product_id)},
+    )
