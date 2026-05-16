@@ -93,14 +93,11 @@ def next_run_at(now: datetime, settings: SchedulerSettings) -> datetime:
         if candidate.astimezone(dt_timezone.utc) >= current_utc:
             return candidate
 
-    tomorrow = current_local + timedelta(days=1)
-    return _scheduled_candidates(
-        tomorrow.year,
-        tomorrow.month,
-        tomorrow.day,
+    return _first_scheduled_candidate_on_or_after(
+        current_local.date() + timedelta(days=1),
         settings.run_at,
         local_tz,
-    )[0]
+    )
 
 
 def _scheduled_candidates(year: int, month: int, day: int, run_at: time, local_tz: ZoneInfo) -> list[datetime]:
@@ -116,6 +113,22 @@ def _scheduled_candidates(year: int, month: int, day: int, run_at: time, local_t
         candidates.append(candidate)
         seen_utc.add(candidate_utc)
     return sorted(candidates, key=lambda candidate: candidate.astimezone(dt_timezone.utc))
+
+
+def _first_scheduled_candidate_on_or_after(start_date: date, run_at: time, local_tz: ZoneInfo) -> datetime:
+    candidate_date = start_date
+    for _ in range(367):
+        candidates = _scheduled_candidates(
+            candidate_date.year,
+            candidate_date.month,
+            candidate_date.day,
+            run_at,
+            local_tz,
+        )
+        if candidates:
+            return candidates[0]
+        candidate_date += timedelta(days=1)
+    raise ValueError("no valid scheduler time found within one year")
 
 
 def _is_valid_local_time(candidate: datetime) -> bool:
@@ -152,14 +165,11 @@ def _next_run_after_date(now: datetime, settings: SchedulerSettings, after_date:
         return next_run
 
     local_tz = ZoneInfo(settings.timezone_name)
-    tomorrow = now.astimezone(local_tz).date() + timedelta(days=1)
-    return _scheduled_candidates(
-        tomorrow.year,
-        tomorrow.month,
-        tomorrow.day,
+    return _first_scheduled_candidate_on_or_after(
+        now.astimezone(local_tz).date() + timedelta(days=1),
         settings.run_at,
         local_tz,
-    )[0]
+    )
 
 
 def run_sync_once(settings: SchedulerSettings, now: datetime | None = None) -> None:
