@@ -40,6 +40,51 @@ def test_price_snapshot_is_unique_per_product_and_date() -> None:
 
 
 @pytest.mark.django_db
+def test_price_snapshot_same_day_allowed_for_different_products() -> None:
+    product_1 = StoreProduct.objects.create(product_id="P-201", product_name="Product 201")
+    product_2 = StoreProduct.objects.create(product_id="P-202", product_name="Product 202")
+
+    PriceSnapshot.objects.create(
+        store_product=product_1,
+        snapshot_date=date(2026, 5, 16),
+        normalized_state="active",
+        source_strategy_source="http",
+        source_strategy_reason="default",
+    )
+    PriceSnapshot.objects.create(
+        store_product=product_2,
+        snapshot_date=date(2026, 5, 16),
+        normalized_state="active",
+        source_strategy_source="http",
+        source_strategy_reason="default",
+    )
+
+    assert PriceSnapshot.objects.filter(snapshot_date=date(2026, 5, 16)).count() == 2
+
+
+@pytest.mark.django_db
+def test_price_snapshot_different_days_allowed_for_same_product() -> None:
+    product = StoreProduct.objects.create(product_id="P-203", product_name="Product 203")
+
+    PriceSnapshot.objects.create(
+        store_product=product,
+        snapshot_date=date(2026, 5, 16),
+        normalized_state="active",
+        source_strategy_source="http",
+        source_strategy_reason="default",
+    )
+    PriceSnapshot.objects.create(
+        store_product=product,
+        snapshot_date=date(2026, 5, 17),
+        normalized_state="active",
+        source_strategy_source="http",
+        source_strategy_reason="default",
+    )
+
+    assert PriceSnapshot.objects.filter(store_product=product).count() == 2
+
+
+@pytest.mark.django_db
 def test_sync_run_summary_defaults_to_json_text() -> None:
     run = SyncRun.objects.create(sync_type="catalog_only", status="running")
 
