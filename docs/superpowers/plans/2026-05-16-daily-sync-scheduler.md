@@ -312,9 +312,15 @@ def test_run_catalog_sync_until_last_records_error_when_max_pages_hit(monkeypatc
         )
 
     sync_run = SyncRun.objects.create(sync_type="catalog_only", status="running")
+    finalize_calls: list[set[str]] = []
 
     monkeypatch.setattr(sync_runner, "PlayStationStoreClient", lambda: FakeClient())
     monkeypatch.setattr(sync_runner, "parse_catalog_page", fake_parse_catalog_page)
+    monkeypatch.setattr(
+        sync_runner,
+        "finalize_catalog_visibility",
+        lambda sync_run, observed_product_ids: finalize_calls.append(set(observed_product_ids)),
+    )
 
     with pytest.raises(sync_runner.MaxPagesExceededError, match="max_pages=2"):
         sync_runner.run_catalog_sync(
@@ -326,7 +332,18 @@ def test_run_catalog_sync_until_last_records_error_when_max_pages_hit(monkeypatc
         )
 
     sync_run.refresh_from_db()
+    assert finalize_calls == []
     assert sync_run.error_count == 1
+    assert json.loads(sync_run.summary) == {
+        "observed_items": 2,
+        "persisted_products": 2,
+        "skipped_missing_product_id": 0,
+        "pages_fetched": 2,
+        "last_page_reached": False,
+        "max_pages_hit": True,
+        "last_page_number": 2,
+        "catalog_total_count": 72,
+    }
     assert SyncError.objects.filter(
         sync_run=sync_run,
         stage="catalog_traversal",
@@ -485,7 +502,7 @@ record_catalog_coverage(
 )
 ```
 
-Keep the existing `finalize_catalog_visibility()` call after the loop for catalog and combined modes.
+Keep the existing `finalize_catalog_visibility()` call after the loop for catalog and combined modes only when traversal completed. For `until_last=True`, completion means `last_page_reached is True`; if max-pages is hit first, record the max-pages error and skip finalization so products from unvisited pages are not marked invisible.
 
 - [ ] **Step 5: Run focused sync runner tests**
 

@@ -121,6 +121,7 @@
 - `sync_ps_store` 內部已能把單筆 snapshot 失敗寫成 `SyncError`，scheduler 不重複保存單筆錯誤。
 - command 若整批失敗，`SyncRun.status` 應維持既有失敗語意。
 - 若已達 `max-pages` 仍未遇到 `is_last`，command 應保存清楚錯誤訊息；若已有成功落地資料，`SyncRun.status` 應為 `partial`，若完全沒有成功落地，則為 `failed`。
+- 若已達 `max-pages` 仍未遇到 `is_last`，這次 catalog traversal 不完整，不得執行 catalog visibility finalization，避免把未拜訪頁面的有效商品誤標為 invisible。
 - 第一版維持既有 `PlayStationStoreClient` 的低速序列請求節奏，不新增並行抓取。
 - scheduler 應避免同一程序內重疊執行兩次同步；若上一輪仍在跑，下一輪應跳過並寫 log。第一版不保證多個 scheduler process 之間互斥，部署設定必須只啟動一個 scheduler process。
 - 本 feature 不處理 missed run 補償。需要補資料時，由人工執行現有 command 指定 `--snapshot-date`。
