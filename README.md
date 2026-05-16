@@ -65,6 +65,8 @@ uv run python manage.py sync_ps_store --mode catalog-and-snapshot --until-last -
 
 `PS_PRICE_SYNC_MAX_PAGES` is a guardrail, not the target coverage. The sync stops when the parsed catalog page reports `is_last`.
 
+Run only one scheduler process for this first version. It does not implement a cross-process lock, so starting multiple scheduler processes can run duplicate daily syncs.
+
 ## Manual crawler commands
 
 這些命令會觸碰 live PlayStation Store，適合人工 smoke test 或 fixture refresh，不是 CI requirement。
