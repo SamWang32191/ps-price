@@ -4,6 +4,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from datetime import timezone as dt_timezone
+import logging
 import os
 import time as _time
 from zoneinfo import ZoneInfo
@@ -14,6 +15,7 @@ from django.utils import timezone
 
 
 VALID_SYNC_MODES = {"catalog-only", "snapshot-only", "catalog-and-snapshot"}
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -121,14 +123,12 @@ def run_scheduler_loop(
     run_once: Callable[[SchedulerSettings, datetime], None] = run_sync_once,
     iterations: int | None = None,
 ) -> None:
-    if iterations is None:
-        while True:
-            current = now_func()
-            sleep(seconds_until_next_run(current, settings))
-            run_once(settings, now_func())
-        return
-
-    for _ in range(iterations):
+    completed = 0
+    while iterations is None or completed < iterations:
         current = now_func()
         sleep(seconds_until_next_run(current, settings))
-        run_once(settings, now_func())
+        try:
+            run_once(settings, now_func())
+        except Exception:
+            logger.exception("Daily sync failed; waiting for next scheduled run")
+        completed += 1

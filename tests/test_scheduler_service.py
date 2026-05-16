@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from datetime import time
+import logging
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -150,3 +151,48 @@ def test_run_scheduler_loop_runs_one_iteration() -> None:
 
     assert sleeps == [1800.0]
     assert runs == [datetime(2026, 5, 16, 3, 30, tzinfo=ZoneInfo("Asia/Taipei"))]
+
+
+def test_run_scheduler_loop_logs_failure_and_continues(caplog: pytest.LogCaptureFixture) -> None:
+    settings = scheduler.SchedulerSettings(
+        mode="catalog-and-snapshot",
+        max_pages=500,
+        timezone_name="Asia/Taipei",
+        run_at=time(3, 30),
+    )
+    sleeps: list[float] = []
+    now_values = iter(
+        [
+            datetime(2026, 5, 16, 3, 0, tzinfo=ZoneInfo("Asia/Taipei")),
+            datetime(2026, 5, 16, 3, 30, tzinfo=ZoneInfo("Asia/Taipei")),
+            datetime(2026, 5, 16, 3, 31, tzinfo=ZoneInfo("Asia/Taipei")),
+            datetime(2026, 5, 17, 3, 30, tzinfo=ZoneInfo("Asia/Taipei")),
+        ]
+    )
+    calls = 0
+
+    def fake_now() -> datetime:
+        return next(now_values)
+
+    def fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    def fake_run_once(settings: scheduler.SchedulerSettings, now: datetime) -> None:
+        nonlocal calls
+        del settings, now
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("sync failed")
+
+    with caplog.at_level(logging.ERROR, logger="ps_price_sync.services.scheduler"):
+        scheduler.run_scheduler_loop(
+            settings,
+            sleep=fake_sleep,
+            now_func=fake_now,
+            run_once=fake_run_once,
+            iterations=2,
+        )
+
+    assert calls == 2
+    assert sleeps == [1800.0, 86340.0]
+    assert "Daily sync failed; waiting for next scheduled run" in caplog.text
