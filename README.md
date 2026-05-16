@@ -45,6 +45,23 @@ uv run python manage.py sync_ps_store --mode snapshot-only --pages 5 --snapshot-
 uv run python manage.py sync_ps_store --mode catalog-and-snapshot --pages 5 --snapshot-date 2026-05-16
 ```
 
+## Web dashboard usage
+
+The first read-only web UI provides:
+
+- `/` Dashboard for latest sync status, catalog coverage, product counts, current discounts, and recent unresolved sync errors.
+- `/products/` Product search and filters.
+- `/products/<product_id>/` Product detail with current price, historical lows, a simple trend chart, and daily snapshots.
+
+Run locally:
+
+```bash
+uv run python manage.py migrate
+uv run python manage.py runserver 127.0.0.1:8000
+```
+
+This UI is read-only. It does not trigger syncs, retry errors, or modify products.
+
 ## Daily scheduler usage
 
 The scheduler runs the existing Django sync command once per day. It defaults to a full catalog traversal with a safety guard:
