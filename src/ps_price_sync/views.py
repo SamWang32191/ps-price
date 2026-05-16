@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from django.shortcuts import get_object_or_404, render
 
+from .services.query_views import get_dashboard_summary
 from .models import StoreProduct
 
 
 def dashboard(request):
-    return render(request, "ps_price_sync/dashboard.html")
+    return render(request, "ps_price_sync/dashboard.html", {"summary": get_dashboard_summary()})
 
 
 def product_list(request):
