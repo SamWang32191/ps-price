@@ -23,3 +23,9 @@ def test_django_settings_module_is_configured() -> None:
     ]
     assert apps.get_app_config("ps_price_sync").name == "ps_price_sync"
     assert import_module(settings.ROOT_URLCONF).__name__ == "ps_price_site.urls"
+
+
+def test_readme_mentions_django_sync_commands() -> None:
+    readme_content = Path("README.md").read_text()
+    assert "uv run python manage.py migrate" in readme_content
+    assert "uv run python manage.py sync_ps_store --mode catalog-and-snapshot" in readme_content

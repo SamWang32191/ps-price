@@ -28,6 +28,23 @@ uv run pytest -v
 
 CI policy：GitHub Actions 只跑離線測試。CI 使用 `uv sync --extra dev --locked` 與 `uv run pytest -v`，不執行 live PlayStation Store crawler commands，也不 capture fixture。
 
+## Django setup and sync usage
+
+Django 資料基礎建置完成後，需先完成套件安裝與 migration：
+
+```bash
+uv sync --extra dev
+uv run python manage.py migrate
+```
+
+同步命令提供三種模式（可調整 `--pages` 與 `--snapshot-date`）：
+
+```bash
+uv run python manage.py sync_ps_store --mode catalog-only --pages 5 --snapshot-date 2026-05-16
+uv run python manage.py sync_ps_store --mode snapshot-only --pages 5 --snapshot-date 2026-05-16
+uv run python manage.py sync_ps_store --mode catalog-and-snapshot --pages 5 --snapshot-date 2026-05-16
+```
+
 ## Manual crawler commands
 
 這些命令會觸碰 live PlayStation Store，適合人工 smoke test 或 fixture refresh，不是 CI requirement。
