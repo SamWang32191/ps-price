@@ -16,4 +16,3 @@ def money_twd(value, display_text=""):
 @register.filter
 def raw_json_list(value):
     return format_raw_json_list(value)
-
