@@ -119,8 +119,8 @@ def ingest_catalog_snapshot(
             "image_url": item.image_url,
             "source_url": source_url,
             "platforms_raw": json.dumps([]),
-            "is_visible": True,
-            "missing_count": 0,
+            "is_visible": None,
+            "missing_count": None,
         },
     )
 
@@ -133,20 +133,22 @@ def ingest_catalog_snapshot(
         product.image_url = item.image_url
     if source_url:
         product.source_url = source_url
-    if not created:
-        product.is_visible = True
-        product.missing_count = 0
-    product.save(
-        update_fields=(
-            "concept_id",
-            "product_name",
-            "concept_name",
-            "image_url",
-            "source_url",
+    update_fields = (
+        "concept_id",
+        "product_name",
+        "concept_name",
+        "image_url",
+        "source_url",
+        "updated_at",
+    )
+    if created:
+        update_fields = (
+            *update_fields,
             "is_visible",
             "missing_count",
-            "updated_at",
         )
+    product.save(
+        update_fields=update_fields
     )
 
     _upsert_snapshot(
@@ -270,7 +272,8 @@ def ingest_catalog_page(
             },
         )
         product.concept_id = item.concept_id
-        product.product_name = item.name
+        if not product.product_name:
+            product.product_name = item.name
         if not product.concept_name:
             product.concept_name = item.name
         if item.image_url:

@@ -81,7 +81,7 @@ def test_ingest_catalog_page_upserts_product_and_marks_visible() -> None:
     first_product = StoreProduct.objects.create(
         product_id="UP1821-PPSA10990_00-1887411884729257",
         concept_id="old",
-        product_name="old name",
+        product_name="",
         concept_name="old concept",
         is_visible=False,
         missing_count=2,
@@ -294,6 +294,35 @@ def test_ingest_catalog_page_keeps_existing_non_empty_concept_name() -> None:
 
 
 @pytest.mark.django_db
+def test_ingest_catalog_page_keeps_existing_product_name_from_detail_data() -> None:
+    from ps_price_sync.services.ingestion import ingest_catalog_page
+
+    sync_run = SyncRun.objects.create(sync_type="catalog_only", status="running")
+    StoreProduct.objects.create(
+        product_id="UP1821-PPSA10990_00-1887411884729257",
+        concept_id="223118",
+        product_name="Detail product name",
+        concept_name="Detail concept",
+        is_visible=False,
+        missing_count=2,
+    )
+    page = _catalog_page(
+        (_catalog_item(
+            concept_id="223118",
+            product_ids=("UP1821-PPSA10990_00-1887411884729257",),
+        ),),
+    )
+
+    ingest_catalog_page(sync_run=sync_run, page=page, seen_at=django_timezone.now())
+
+    product = StoreProduct.objects.get(product_id="UP1821-PPSA10990_00-1887411884729257")
+    assert product.product_name == "Detail product name"
+    assert product.concept_name == "Detail concept"
+    assert product.is_visible is True
+    assert product.missing_count == 0
+
+
+@pytest.mark.django_db
 def test_ingest_catalog_snapshot_writes_snapshot_without_detail() -> None:
     sync_run = SyncRun.objects.create(sync_type="catalog_snapshot", status="running")
     item = _catalog_item(
@@ -320,6 +349,8 @@ def test_ingest_catalog_snapshot_writes_snapshot_without_detail() -> None:
     assert product.concept_id == "223118"
     assert product.product_name == "Game 223118"
     assert product.source_url == "https://store.playstation.com/zh-hant-tw/catalog/223118"
+    assert product.is_visible is None
+    assert product.missing_count is None
     assert snapshot.normalized_state == PriceState.PAID.value
     assert snapshot.currency == "TWD"
     assert snapshot.base_amount_cents == 169000
