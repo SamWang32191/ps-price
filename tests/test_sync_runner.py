@@ -437,7 +437,7 @@ def test_run_catalog_sync_until_last_records_error_when_max_pages_hit(monkeypatc
         return CatalogPage(
             source_url="https://store.playstation.com/zh-hant-tw/category/test/1",
             category_id="test",
-            total_count=32,
+            total_count=72,
             offset=0,
             size=24,
             is_last=False,
@@ -480,4 +480,11 @@ def test_run_catalog_sync_until_last_records_error_when_max_pages_hit(monkeypatc
 
     errors = SyncError.objects.filter(sync_run=sync_run, stage="catalog_traversal", error_type="MaxPagesExceededError")
     assert errors.count() == 1
-    assert calls["finalize_catalog_visibility"] == 1
+    assert calls["finalize_catalog_visibility"] == 0
+    assert json.loads(sync_run.summary) == {
+        "pages_fetched": 2,
+        "last_page_reached": False,
+        "max_pages_hit": True,
+        "last_page_number": 2,
+        "catalog_total_count": 72,
+    }

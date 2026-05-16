@@ -96,7 +96,7 @@ def run_catalog_sync(
             source_url, html = client.fetch_catalog_page(page_number)
             parsed = parse_catalog_page(html, source_url=source_url)
             pages_fetched = page_number
-            last_page_reached = parsed.is_last
+            last_page_reached = last_page_reached or parsed.is_last
             last_page_number = page_number
             catalog_total_count = parsed.total_count
             result = ingest_catalog_page(
@@ -110,7 +110,6 @@ def run_catalog_sync(
             if until_last and parsed.is_last:
                 break
 
-    finalize_catalog_visibility(sync_run=sync_run, observed_product_ids=observed_product_ids)
     if until_last and not last_page_reached:
         _record_max_pages_exceeded(
             sync_run=sync_run,
@@ -118,6 +117,7 @@ def run_catalog_sync(
             last_page_number=last_page_number,
             catalog_total_count=catalog_total_count,
         )
+    finalize_catalog_visibility(sync_run=sync_run, observed_product_ids=observed_product_ids)
     record_catalog_coverage(
         sync_run=sync_run,
         pages_fetched=pages_fetched,
@@ -151,7 +151,7 @@ def run_snapshot_sync(
             page_source_url, html = client.fetch_catalog_page(page_number)
             parsed = parse_catalog_page(html, source_url=page_source_url)
             pages_fetched = page_number
-            last_page_reached = parsed.is_last
+            last_page_reached = last_page_reached or parsed.is_last
             last_page_number = page_number
             catalog_total_count = parsed.total_count
 
@@ -208,7 +208,7 @@ def run_catalog_and_snapshot_sync(
             source_url, html = client.fetch_catalog_page(page_number)
             parsed = parse_catalog_page(html, source_url=source_url)
             pages_fetched = page_number
-            last_page_reached = parsed.is_last
+            last_page_reached = last_page_reached or parsed.is_last
             last_page_number = page_number
             catalog_total_count = parsed.total_count
 
@@ -232,7 +232,6 @@ def run_catalog_and_snapshot_sync(
             if until_last and parsed.is_last:
                 break
 
-    finalize_catalog_visibility(sync_run=sync_run, observed_product_ids=observed_product_ids)
     if until_last and not last_page_reached:
         _record_max_pages_exceeded(
             sync_run=sync_run,
@@ -240,6 +239,7 @@ def run_catalog_and_snapshot_sync(
             last_page_number=last_page_number,
             catalog_total_count=catalog_total_count,
         )
+    finalize_catalog_visibility(sync_run=sync_run, observed_product_ids=observed_product_ids)
     record_catalog_coverage(
         sync_run=sync_run,
         pages_fetched=pages_fetched,
