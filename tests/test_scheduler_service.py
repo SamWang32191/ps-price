@@ -165,6 +165,46 @@ def test_run_scheduler_loop_runs_one_iteration() -> None:
     assert runs == [datetime(2026, 5, 16, 3, 30, tzinfo=ZoneInfo("Asia/Taipei"))]
 
 
+def test_run_scheduler_loop_runs_ambiguous_time_once_per_local_date() -> None:
+    settings = scheduler.SchedulerSettings(
+        mode="catalog-and-snapshot",
+        max_pages=500,
+        timezone_name="America/New_York",
+        run_at=time(1, 30),
+    )
+    sleeps: list[float] = []
+    runs: list[datetime] = []
+    now_values = iter(
+        [
+            datetime(2026, 11, 1, 1, 30, fold=0, tzinfo=ZoneInfo("America/New_York")),
+            datetime(2026, 11, 1, 1, 30, fold=0, tzinfo=ZoneInfo("America/New_York")),
+            datetime(2026, 11, 1, 1, 31, fold=0, tzinfo=ZoneInfo("America/New_York")),
+            datetime(2026, 11, 2, 1, 30, tzinfo=ZoneInfo("America/New_York")),
+        ]
+    )
+
+    def fake_now() -> datetime:
+        return next(now_values)
+
+    def fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    def fake_run_once(settings: scheduler.SchedulerSettings, now: datetime) -> None:
+        del settings
+        runs.append(now)
+
+    scheduler.run_scheduler_loop(
+        settings,
+        sleep=fake_sleep,
+        now_func=fake_now,
+        run_once=fake_run_once,
+        iterations=2,
+    )
+
+    assert sleeps == [0.0, 89940.0]
+    assert [run.date().isoformat() for run in runs] == ["2026-11-01", "2026-11-02"]
+
+
 def test_seconds_until_next_run_uses_elapsed_time_across_dst() -> None:
     settings = scheduler.SchedulerSettings(
         mode="catalog-and-snapshot",

@@ -130,12 +130,36 @@ def _is_valid_local_time(candidate: datetime) -> bool:
 
 
 def seconds_until_next_run(now: datetime, settings: SchedulerSettings) -> float:
+    return _seconds_until_next_run_after_date(now, settings, after_date=None)
+
+
+def _seconds_until_next_run_after_date(
+    now: datetime,
+    settings: SchedulerSettings,
+    after_date: date | None,
+) -> float:
     local_tz = ZoneInfo(settings.timezone_name)
     current_local = now.astimezone(local_tz) if now.tzinfo else now.replace(tzinfo=local_tz)
-    next_run = next_run_at(current_local, settings)
+    next_run = _next_run_after_date(current_local, settings, after_date)
     return (
         next_run.astimezone(dt_timezone.utc) - current_local.astimezone(dt_timezone.utc)
     ).total_seconds()
+
+
+def _next_run_after_date(now: datetime, settings: SchedulerSettings, after_date: date | None) -> datetime:
+    next_run = next_run_at(now, settings)
+    if after_date is None or next_run.date() != after_date:
+        return next_run
+
+    local_tz = ZoneInfo(settings.timezone_name)
+    tomorrow = now.astimezone(local_tz).date() + timedelta(days=1)
+    return _scheduled_candidates(
+        tomorrow.year,
+        tomorrow.month,
+        tomorrow.day,
+        settings.run_at,
+        local_tz,
+    )[0]
 
 
 def run_sync_once(settings: SchedulerSettings, now: datetime | None = None) -> None:
@@ -162,11 +186,15 @@ def run_scheduler_loop(
     iterations: int | None = None,
 ) -> None:
     completed = 0
+    last_attempt_date: date | None = None
     while iterations is None or completed < iterations:
         current = now_func()
-        sleep(seconds_until_next_run(current, settings))
+        sleep(_seconds_until_next_run_after_date(current, settings, last_attempt_date))
+        run_at = now_func()
         try:
-            run_once(settings, now_func())
+            run_once(settings, run_at)
         except Exception:
             logger.exception("Daily sync failed; waiting for next scheduled run")
+        finally:
+            last_attempt_date = snapshot_date_for(run_at, settings.timezone_name)
         completed += 1
