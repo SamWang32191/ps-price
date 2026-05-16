@@ -215,99 +215,101 @@ def test_product_list_renders_zero_price(client) -> None:
 
 
 @pytest.mark.django_db
-def test_product_detail_returns_404_for_unknown_product(client) -> None:
-    response = client.get(reverse("product-detail", kwargs={"product_id": "missing-product"}))
+def test_product_detail_page_404_for_missing_product(client) -> None:
+    response = client.get(reverse("ps_price_web:product_detail", kwargs={"product_id": "NOPE"}))
 
     assert response.status_code == 404
 
 
 @pytest.mark.django_db
-def test_product_detail_renders_current_price_lows_chart_and_snapshot_table(client) -> None:
-    product = _web_product("P-detail-1", "Detail Game")
-    product.concept_id = "C-detail-1"
-    product.publisher_name = "Detail Studio"
-    product.release_date_raw = "2026-01-01"
-    product.top_category = "RPG"
-    product.source_url = "https://example.com/detail-game"
-    product.save(
-        update_fields=[
-            "concept_id",
-            "publisher_name",
-            "release_date_raw",
-            "top_category",
-            "source_url",
-        ]
-    )
+def test_product_detail_page_renders_latest_price_and_regular_low(client) -> None:
+    product = _web_product("P-DETAIL", "Detail Product")
+    product.concept_name = "Detail Concept"
+    product.publisher_name = "Publisher"
+    product.save(update_fields=["concept_name", "publisher_name"])
     PriceSnapshot.objects.create(
         store_product=product,
         snapshot_date=date(2026, 5, 14),
         normalized_state="PAID",
         currency="TWD",
-        base_amount_cents=200000,
-        discounted_amount_cents=200000,
-        base_display="NT$2,000",
-        discounted_display="NT$2,000",
-        source_strategy_source="catalog",
-        source_strategy_reason="test",
-    )
-    PriceSnapshot.objects.create(
-        store_product=product,
-        snapshot_date=date(2026, 5, 13),
-        normalized_state="FREE",
-        currency="TWD",
-        base_amount_cents=0,
-        discounted_amount_cents=0,
-        base_display="NT$0",
-        discounted_display="NT$0",
+        base_amount_cents=120000,
+        discounted_amount_cents=120000,
+        base_display="NT$1,200",
+        discounted_display="NT$1,200",
         source_strategy_source="catalog",
         source_strategy_reason="test",
     )
     PriceSnapshot.objects.create(
         store_product=product,
         snapshot_date=date(2026, 5, 15),
-        normalized_state="DISCOUNTED",
+        normalized_state="PS_PLUS",
         currency="TWD",
-        base_amount_cents=200000,
-        discounted_amount_cents=120000,
-        base_display="NT$2,000",
-        discounted_display="NT$1,200",
-        discount_text="限時優惠",
+        base_amount_cents=120000,
+        discounted_amount_cents=20000,
+        base_display="NT$1,200",
+        discounted_display="NT$200",
         source_strategy_source="catalog",
         source_strategy_reason="test",
     )
     PriceSnapshot.objects.create(
         store_product=product,
         snapshot_date=date(2026, 5, 16),
-        normalized_state="PS_PLUS",
+        normalized_state="DISCOUNTED",
         currency="TWD",
-        base_amount_cents=200000,
-        discounted_amount_cents=90000,
-        plus_amount_cents=90000,
-        base_display="NT$2,000",
-        discounted_display="NT$900",
-        source_strategy_source="concept_detail",
-        source_strategy_reason="price_state_ps_plus",
+        base_amount_cents=120000,
+        discounted_amount_cents=70000,
+        base_display="NT$1,200",
+        discounted_display="NT$700",
+        source_strategy_source="catalog",
+        source_strategy_reason="test",
     )
 
-    response = client.get(reverse("product-detail", kwargs={"product_id": "P-detail-1"}))
+    response = client.get(reverse("ps_price_web:product_detail", kwargs={"product_id": "P-DETAIL"}))
     content = response.content.decode()
 
     assert response.status_code == 200
-    assert "Detail Game" in content
-    assert "P-detail-1" in content
-    assert "C-detail-1" in content
-    assert "Detail Studio" in content
-    assert "RPG" in content
-    assert "2026-01-01" in content
-    assert 'https://example.com/detail-game' in content
-    assert "一般歷史低價" in content
-    assert "NT$1,200" in content
-    assert "PS Plus 歷史低價" in content
-    assert "NT$900" in content
-    assert "<svg" in content
-    assert "每日價格紀錄" in content
-    assert "限時優惠" in content
-    assert "NT$0" in content
+    assert "Detail Product" in content
+    assert "Detail Concept" in content
+    assert "Publisher" in content
+    assert "一般歷史最低價" in content
+    assert "NT$700" in content
+    assert "PS_PLUS" in content
+    assert content.index("2026-05-16") < content.index("2026-05-15")
+
+
+@pytest.mark.django_db
+def test_product_detail_page_renders_product_without_snapshots(client) -> None:
+    product = _web_product("P-NO-SNAPSHOTS", "No Snapshots")
+
+    response = client.get(reverse("ps_price_web:product_detail", kwargs={"product_id": "P-NO-SNAPSHOTS"}))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "No Snapshots" in content
+    assert "尚無價格快照" in content
+
+
+@pytest.mark.django_db
+def test_product_detail_page_renders_zero_regular_low(client) -> None:
+    product = _web_product("P-FREE-DEAL", "Free Deal")
+    PriceSnapshot.objects.create(
+        store_product=product,
+        snapshot_date=date(2026, 5, 16),
+        normalized_state="DISCOUNTED",
+        currency="TWD",
+        base_amount_cents=120000,
+        discounted_amount_cents=0,
+        base_display="NT$1,200",
+        discounted_display="NT$0",
+        source_strategy_source="catalog",
+        source_strategy_reason="test",
+    )
+
+    response = client.get(reverse("ps_price_web:product_detail", kwargs={"product_id": "P-FREE-DEAL"}))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "一般歷史最低價：NT$0" in content
 
 
 def test_twd_cents_template_filter_formats_integer_cents() -> None:
@@ -330,3 +332,44 @@ def test_snapshot_price_display_prefers_display_text_over_cents() -> None:
     )
 
     assert snapshot_price_display(snapshot) == "NT$999"
+
+
+@pytest.mark.django_db
+def test_deals_page_renders_discounted_products(client) -> None:
+    discounted = _web_product("P-DISCOUNT", "Discounted Product")
+    plus = _web_product("P-PLUS", "Plus Product")
+    _web_snapshot(discounted, state="DISCOUNTED", base_amount_cents=100000, discounted_amount_cents=50000)
+    _web_snapshot(plus, state="PS_PLUS", base_amount_cents=100000, discounted_amount_cents=30000)
+
+    response = client.get(reverse("ps_price_web:deals"))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Discounted Product" in content
+    assert "Plus Product" not in content
+    assert "50%" in content
+    assert "/products/P-DISCOUNT/" in content
+
+
+@pytest.mark.django_db
+def test_deals_page_applies_search_query(client) -> None:
+    fantasy = _web_product("P-DEAL-1", "Final Fantasy")
+    gran_turismo = _web_product("P-DEAL-2", "Gran Turismo")
+    _web_snapshot(fantasy, state="DISCOUNTED")
+    _web_snapshot(gran_turismo, state="DISCOUNTED")
+
+    response = client.get(reverse("ps_price_web:deals"), {"q": "fantasy"})
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Final Fantasy" in content
+    assert "Gran Turismo" not in content
+
+
+@pytest.mark.django_db
+def test_deals_page_empty_state(client) -> None:
+    response = client.get(reverse("ps_price_web:deals"))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "目前沒有一般折扣商品" in content

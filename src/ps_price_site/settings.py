@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
     "ps_price_sync",
+    "ps_price_web",
 ]
 
 MIDDLEWARE: list[str] = []

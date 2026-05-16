@@ -45,13 +45,28 @@ uv run python manage.py sync_ps_store --mode snapshot-only --pages 5 --snapshot-
 uv run python manage.py sync_ps_store --mode catalog-and-snapshot --pages 5 --snapshot-date 2026-05-16
 ```
 
+## Self-use deals UI
+
+After migrating and syncing data, run the Django dev server:
+
+```bash
+uv run python manage.py runserver
+```
+
+Open:
+
+- `http://127.0.0.1:8000/deals/`
+- `http://127.0.0.1:8000/products/<product_id>/`
+
+The first UI milestone is read-only. It shows general discounted products and a thin product detail page; PS Plus prices are not mixed into regular discounts or regular historical lows.
+
 ## Web dashboard usage
 
 The first read-only web UI provides:
 
 - `/` Dashboard for latest sync status, catalog coverage, product counts, current discounts, and recent unresolved sync errors.
 - `/products/` Product search and filters.
-- `/products/<product_id>/` Product detail with current price, historical lows, a simple trend chart, and daily snapshots.
+- `/products/<product_id>/` Thin product detail page for discounted products; PS Plus prices are not mixed into regular discounts or regular historical lows.
 
 Run locally:
 

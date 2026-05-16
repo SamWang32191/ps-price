@@ -1,0 +1,62 @@
+{% extends "ps_price_web/base.html" %}
+{% load ps_price_web_extras %}
+
+{% block title %}特價清單 - PS Price{% endblock %}
+
+{% block content %}
+  <h1>特價清單</h1>
+
+  <form method="get" action="{% url 'ps_price_web:deals' %}" class="search-form">
+    <input type="search" name="q" value="{{ query }}" placeholder="搜尋遊戲名稱">
+    <button type="submit">搜尋</button>
+  </form>
+
+  {% if deals %}
+    <table>
+      <thead>
+        <tr>
+          <th>封面</th>
+          <th>商品</th>
+          <th>平台</th>
+          <th>原價</th>
+          <th>現價</th>
+          <th>折扣</th>
+          <th>更新日期</th>
+          <th>商店連結</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for deal in deals %}
+          <tr>
+            <td>
+              {% if deal.product.image_url %}
+                <img src="{{ deal.product.image_url }}" alt="{{ deal.product.product_name }}" width="64" height="64">
+              {% else %}
+                -
+              {% endif %}
+            </td>
+            <td>
+              <a href="{% url 'ps_price_web:product_detail' deal.product.product_id %}">
+                {{ deal.product.product_name }}
+              </a>
+            </td>
+            <td>{{ deal.product.platforms_raw|raw_json_list }}</td>
+            <td>{{ deal.snapshot.base_amount_cents|money_twd }}</td>
+            <td>{{ deal.snapshot.discounted_amount_cents|money_twd }}</td>
+            <td>{{ deal.discount_percent }}%</td>
+            <td>{{ deal.snapshot.snapshot_date }}</td>
+            <td>
+              {% if deal.product.source_url %}
+                <a href="{{ deal.product.source_url }}">前往商店</a>
+              {% else %}
+                -
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">目前沒有一般折扣商品</p>
+  {% endif %}
+{% endblock %}
