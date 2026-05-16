@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="UTF-8">
+    <title>{% block title %}PS Price{% endblock %}</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: "Noto Sans TC", Arial, "PingFang TC", "Microsoft JhengHei", sans-serif;
+        background: #f7f8fb;
+        color: #1f2937;
+      }
+      .container {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+      }
+      .top-nav {
+        background: #111827;
+        color: #f9fafb;
+        padding: 1rem 1.5rem;
+      }
+      .top-nav a {
+        color: #f9fafb;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        border-bottom: 1px solid #e5e7eb;
+        padding: 0.5rem;
+        text-align: left;
+      }
+      th {
+        background: #e5e7eb;
+      }
+      .empty {
+        color: #6b7280;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="top-nav">
+      <a href="{% url 'ps_price_web:deals' %}">特價清單</a>
+    </nav>
+    <main class="container">
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

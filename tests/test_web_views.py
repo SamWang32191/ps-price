@@ -330,3 +330,44 @@ def test_snapshot_price_display_prefers_display_text_over_cents() -> None:
     )
 
     assert snapshot_price_display(snapshot) == "NT$999"
+
+
+@pytest.mark.django_db
+def test_deals_page_renders_discounted_products(client) -> None:
+    discounted = _web_product("P-DISCOUNT", "Discounted Product")
+    plus = _web_product("P-PLUS", "Plus Product")
+    _web_snapshot(discounted, state="DISCOUNTED", base_amount_cents=100000, discounted_amount_cents=50000)
+    _web_snapshot(plus, state="PS_PLUS", base_amount_cents=100000, discounted_amount_cents=30000)
+
+    response = client.get(reverse("ps_price_web:deals"))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Discounted Product" in content
+    assert "Plus Product" not in content
+    assert "50%" in content
+    assert "/products/P-DISCOUNT/" in content
+
+
+@pytest.mark.django_db
+def test_deals_page_applies_search_query(client) -> None:
+    fantasy = _web_product("P-DEAL-1", "Final Fantasy")
+    gran_turismo = _web_product("P-DEAL-2", "Gran Turismo")
+    _web_snapshot(fantasy, state="DISCOUNTED")
+    _web_snapshot(gran_turismo, state="DISCOUNTED")
+
+    response = client.get(reverse("ps_price_web:deals"), {"q": "fantasy"})
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Final Fantasy" in content
+    assert "Gran Turismo" not in content
+
+
+@pytest.mark.django_db
+def test_deals_page_empty_state(client) -> None:
+    response = client.get(reverse("ps_price_web:deals"))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "目前沒有一般折扣商品" in content
