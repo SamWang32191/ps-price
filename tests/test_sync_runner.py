@@ -5,7 +5,7 @@ from ps_price_crawler.models import CatalogItem, CatalogPage
 from ps_price_crawler.price_contract import NormalizedPrice, PriceState
 from ps_price_crawler.source_strategy import SnapshotSourceDecision
 from ps_price_sync.services.ingestion import CatalogIngestionResult
-from ps_price_sync.models import SyncRun
+from ps_price_sync.models import SyncError, SyncRun
 from ps_price_sync.services import sync_runner
 
 
@@ -207,3 +207,130 @@ def test_run_catalog_and_snapshot_sync_fetches_each_catalog_page_once(monkeypatc
     )
 
     assert calls["catalog"] == 2
+
+
+@pytest.mark.django_db
+def test_run_snapshot_sync_continues_after_item_fails(monkeypatch):
+    class FakeClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return None
+
+        def fetch_catalog_page(self, page: int):
+            del page
+            return "https://store.playstation.com/zh-hant-tw/category/test/1", "catalog-page-html"
+
+    def fake_parse_catalog_page(html: str, source_url: str) -> CatalogPage:
+        del html
+        return CatalogPage(
+            source_url=source_url,
+            category_id="test",
+            total_count=2,
+            offset=0,
+            size=24,
+            is_last=True,
+            items=(
+                CatalogItem(
+                    concept_id="223118",
+                    name="Game fail",
+                    product_ids=("UP1821-FAIL",),
+                    image_url=None,
+                    price=None,
+                ),
+                CatalogItem(
+                    concept_id="223119",
+                    name="Game ok",
+                    product_ids=("UP1821-OK",),
+                    image_url=None,
+                    price=None,
+                ),
+            ),
+        )
+
+    def fake_normalize_catalog_item_price(item: CatalogItem) -> NormalizedPrice:
+        if item.concept_id == "223118":
+            raise ValueError("normalize fail")
+        return NormalizedPrice(
+            state=PriceState.PAID,
+            currency="TWD",
+            base_amount_cents=169000,
+            discounted_amount_cents=139000,
+            plus_amount_cents=None,
+            base_display="NT$1,690",
+            discounted_display="NT$1,390",
+            discount_text="",
+            service_branding=(),
+            upsell_text=None,
+            source="catalog",
+            raw_missing_reason=None,
+        )
+
+    def fake_choose_snapshot_source(
+        item: CatalogItem,
+        normalized_price: NormalizedPrice,
+    ) -> SnapshotSourceDecision:
+        del item, normalized_price
+        return SnapshotSourceDecision(
+            source="catalog",
+            reason="catalog_price_snapshot",
+            reason_codes=("clear_catalog_price", "product_ids_present"),
+            normalized_state=PriceState.PAID,
+            product_ids=("UP1821-PPSA10990_00-1887411884729257",),
+            missing_metadata_fields=(),
+        )
+
+    called: dict[str, int] = {"success": 0}
+
+    def fake_ingest_catalog_snapshot(
+        *,
+        sync_run: SyncRun,
+        item,
+        normalized_price,
+        decision,
+        snapshot_date,
+        source_url: str,
+    ) -> object:
+        del sync_run, item, normalized_price, decision, snapshot_date, source_url
+        called["success"] += 1
+        return object()
+
+    sync_run = SyncRun.objects.create(sync_type="snapshot_only", status="running")
+
+    monkeypatch.setattr(sync_runner, "PlayStationStoreClient", lambda: FakeClient())
+    monkeypatch.setattr(sync_runner, "parse_catalog_page", fake_parse_catalog_page)
+    monkeypatch.setattr(sync_runner, "normalize_catalog_item_price", fake_normalize_catalog_item_price)
+    monkeypatch.setattr(sync_runner, "choose_snapshot_source", fake_choose_snapshot_source)
+    monkeypatch.setattr(sync_runner, "ingest_catalog_snapshot", fake_ingest_catalog_snapshot)
+
+    sync_runner.run_snapshot_sync(
+        sync_run=sync_run,
+        page_limit=1,
+        snapshot_date=date(2026, 5, 16),
+    )
+
+    sync_run.refresh_from_db()
+    assert called["success"] == 1
+    assert sync_run.success_count == 1
+    assert sync_run.error_count == 1
+
+    errors = SyncError.objects.filter(sync_run=sync_run, stage="snapshot_ingestion")
+    assert errors.count() == 1
+    error = errors.get()
+    assert error.product_id == "UP1821-FAIL"
+    assert error.concept_id == "223118"
+    assert error.error_type == "ValueError"
+    assert error.error_message == "normalize fail"
+
+
+@pytest.mark.django_db
+def test_run_catalog_sync_rejects_non_positive_page_limit():
+    sync_run = SyncRun.objects.create(sync_type="catalog_only", status="running")
+
+    with pytest.raises(ValueError, match="page_limit must be >= 1"):
+        sync_runner.run_catalog_sync(
+            sync_run=sync_run,
+            page_limit=0,
+            snapshot_date=date(2026, 5, 16),
+        )
