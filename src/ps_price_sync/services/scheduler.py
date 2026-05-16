@@ -56,11 +56,13 @@ def load_settings(environ: Mapping[str, str] | None = None) -> SchedulerSettings
 
 
 def _parse_hhmm(value: str) -> time:
-    try:
-        run_at = datetime.strptime(value, "%H:%M").time()
-    except ValueError as exc:
-        raise ValueError("PS_PRICE_SYNC_AT") from exc
-    return run_at
+    if not (len(value) == 5 and value[2] == ":" and value[:2].isdigit() and value[3:].isdigit()):
+        raise ValueError("PS_PRICE_SYNC_AT")
+    hour = int(value[:2])
+    minute = int(value[3:])
+    if hour > 23 or minute > 59:
+        raise ValueError("PS_PRICE_SYNC_AT")
+    return time(hour, minute)
 
 
 def snapshot_date_for(now: datetime, timezone_name: str) -> date:

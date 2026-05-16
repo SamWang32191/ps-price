@@ -43,6 +43,7 @@ def test_load_settings_reads_environment_values() -> None:
     [
         ({"PS_PRICE_SYNC_MODE": "bad"}, "PS_PRICE_SYNC_MODE"),
         ({"PS_PRICE_SYNC_MAX_PAGES": "0"}, "PS_PRICE_SYNC_MAX_PAGES"),
+        ({"PS_PRICE_SYNC_MAX_PAGES": "abc"}, "PS_PRICE_SYNC_MAX_PAGES"),
         ({"PS_PRICE_SYNC_AT": "bad"}, "PS_PRICE_SYNC_AT"),
         ({"PS_PRICE_SYNC_TIMEZONE": "Mars/Base"}, "PS_PRICE_SYNC_TIMEZONE"),
     ],
