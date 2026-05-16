@@ -97,7 +97,9 @@ def seconds_until_next_run(now: datetime, settings: SchedulerSettings) -> float:
     local_tz = ZoneInfo(settings.timezone_name)
     current_local = now.astimezone(local_tz) if now.tzinfo else now.replace(tzinfo=local_tz)
     next_run = next_run_at(current_local, settings)
-    return (next_run - current_local).total_seconds()
+    return (
+        next_run.astimezone(dt_timezone.utc) - current_local.astimezone(dt_timezone.utc)
+    ).total_seconds()
 
 
 def run_sync_once(settings: SchedulerSettings, now: datetime | None = None) -> None:

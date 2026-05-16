@@ -165,6 +165,18 @@ def test_run_scheduler_loop_runs_one_iteration() -> None:
     assert runs == [datetime(2026, 5, 16, 3, 30, tzinfo=ZoneInfo("Asia/Taipei"))]
 
 
+def test_seconds_until_next_run_uses_elapsed_time_across_dst() -> None:
+    settings = scheduler.SchedulerSettings(
+        mode="catalog-and-snapshot",
+        max_pages=500,
+        timezone_name="America/New_York",
+        run_at=time(3, 30),
+    )
+    now = datetime(2026, 3, 8, 1, 30, tzinfo=ZoneInfo("America/New_York"))
+
+    assert scheduler.seconds_until_next_run(now, settings) == 3600.0
+
+
 def test_run_scheduler_loop_logs_failure_and_continues(caplog: pytest.LogCaptureFixture) -> None:
     settings = scheduler.SchedulerSettings(
         mode="catalog-and-snapshot",
