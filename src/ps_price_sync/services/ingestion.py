@@ -69,6 +69,42 @@ def _load_summary(summary_text: str | None) -> dict[str, int]:
     }
 
 
+def _load_summary_mapping(summary_text: str | None) -> dict[str, object]:
+    if not summary_text:
+        return {}
+    try:
+        parsed = json.loads(summary_text)
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+    return dict(parsed)
+
+
+def record_catalog_coverage(
+    *,
+    sync_run: SyncRun,
+    pages_fetched: int,
+    last_page_reached: bool,
+    max_pages_hit: bool,
+    last_page_number: int | None,
+    catalog_total_count: int | None,
+) -> None:
+    summary = _load_summary_mapping(sync_run.summary)
+    summary.update(
+        {
+            "pages_fetched": pages_fetched,
+            "last_page_reached": last_page_reached,
+            "max_pages_hit": max_pages_hit,
+            "last_page_number": last_page_number,
+            "catalog_total_count": catalog_total_count,
+        }
+    )
+    sync_run.summary = json.dumps(summary)
+    sync_run.updated_at = timezone.now()
+    sync_run.save(update_fields=["summary", "updated_at"])
+
+
 def _upsert_snapshot(
     *,
     store_product: StoreProduct,

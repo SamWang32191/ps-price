@@ -13,6 +13,7 @@ from ps_price_sync.services.ingestion import (
     ingest_catalog_page,
     ingest_catalog_snapshot,
     ingest_product_detail_snapshot,
+    record_catalog_coverage,
 )
 
 
@@ -20,22 +21,84 @@ def sync_now() -> datetime:
     return timezone.now()
 
 
+class MaxPagesExceededError(RuntimeError):
+    pass
+
+
+def _page_ceiling(
+    *,
+    page_limit: int | None,
+    until_last: bool,
+    max_pages: int | None,
+) -> int:
+    if until_last:
+        if max_pages is None or max_pages < 1:
+            raise ValueError("max_pages must be >= 1")
+        return max_pages
+    if page_limit is None or page_limit < 1:
+        raise ValueError("page_limit must be >= 1")
+    return page_limit
+
+
+def _record_max_pages_exceeded(
+    *,
+    sync_run: SyncRun,
+    pages_fetched: int,
+    last_page_number: int,
+    catalog_total_count: int | None,
+) -> None:
+    error_message = f"max_pages={pages_fetched} hit before reaching catalog last page"
+    SyncError.objects.create(
+        sync_run=sync_run,
+        stage="catalog_traversal",
+        error_type="MaxPagesExceededError",
+        error_message=error_message,
+        source_url=None,
+        product_id=None,
+        concept_id=None,
+    )
+    sync_run.error_count += 1
+    sync_run.save(update_fields=["error_count", "updated_at"])
+    record_catalog_coverage(
+        sync_run=sync_run,
+        pages_fetched=pages_fetched,
+        last_page_reached=False,
+        max_pages_hit=True,
+        last_page_number=last_page_number,
+        catalog_total_count=catalog_total_count,
+    )
+    raise MaxPagesExceededError(error_message)
+
+
 def run_catalog_sync(
     *,
     sync_run: SyncRun,
-    page_limit: int,
+    page_limit: int | None,
+    until_last: bool = False,
+    max_pages: int | None = None,
     snapshot_date: date,
 ) -> None:
-    if page_limit < 1:
-        raise ValueError("page_limit must be >= 1")
-
     del snapshot_date
+    page_ceiling = _page_ceiling(
+        page_limit=page_limit,
+        until_last=until_last,
+        max_pages=max_pages,
+    )
+
     observed_product_ids: set[str] = set()
+    pages_fetched = 0
+    last_page_reached = False
+    last_page_number: int | None = None
+    catalog_total_count: int | None = None
 
     with PlayStationStoreClient() as client:
-        for page_number in range(1, page_limit + 1):
+        for page_number in range(1, page_ceiling + 1):
             source_url, html = client.fetch_catalog_page(page_number)
             parsed = parse_catalog_page(html, source_url=source_url)
+            pages_fetched = page_number
+            last_page_reached = last_page_reached or parsed.is_last
+            last_page_number = page_number
+            catalog_total_count = parsed.total_count
             result = ingest_catalog_page(
                 sync_run=sync_run,
                 page=parsed,
@@ -44,23 +107,53 @@ def run_catalog_sync(
             if result.persisted_products:
                 _increment_success(sync_run=sync_run, delta=result.persisted_products)
             observed_product_ids.update(result.observed_product_ids)
+            if until_last and parsed.is_last:
+                break
 
+    if until_last and not last_page_reached:
+        _record_max_pages_exceeded(
+            sync_run=sync_run,
+            pages_fetched=pages_fetched,
+            last_page_number=last_page_number,
+            catalog_total_count=catalog_total_count,
+        )
     finalize_catalog_visibility(sync_run=sync_run, observed_product_ids=observed_product_ids)
+    record_catalog_coverage(
+        sync_run=sync_run,
+        pages_fetched=pages_fetched,
+        last_page_reached=last_page_reached,
+        max_pages_hit=False,
+        last_page_number=last_page_number,
+        catalog_total_count=catalog_total_count,
+    )
 
 
 def run_snapshot_sync(
     *,
     sync_run: SyncRun,
-    page_limit: int,
+    page_limit: int | None,
+    until_last: bool = False,
+    max_pages: int | None = None,
     snapshot_date: date,
 ) -> None:
-    if page_limit < 1:
-        raise ValueError("page_limit must be >= 1")
+    page_ceiling = _page_ceiling(
+        page_limit=page_limit,
+        until_last=until_last,
+        max_pages=max_pages,
+    )
+    pages_fetched = 0
+    last_page_reached = False
+    last_page_number: int | None = None
+    catalog_total_count: int | None = None
 
     with PlayStationStoreClient() as client:
-        for page_number in range(1, page_limit + 1):
+        for page_number in range(1, page_ceiling + 1):
             page_source_url, html = client.fetch_catalog_page(page_number)
             parsed = parse_catalog_page(html, source_url=page_source_url)
+            pages_fetched = page_number
+            last_page_reached = last_page_reached or parsed.is_last
+            last_page_number = page_number
+            catalog_total_count = parsed.total_count
 
             for item in parsed.items:
                 _run_snapshot_item(
@@ -70,23 +163,54 @@ def run_snapshot_sync(
                     snapshot_date=snapshot_date,
                     fallback_source_url=page_source_url,
                 )
+            if until_last and parsed.is_last:
+                break
+
+    if until_last and not last_page_reached:
+        _record_max_pages_exceeded(
+            sync_run=sync_run,
+            pages_fetched=pages_fetched,
+            last_page_number=last_page_number,
+            catalog_total_count=catalog_total_count,
+        )
+    record_catalog_coverage(
+        sync_run=sync_run,
+        pages_fetched=pages_fetched,
+        last_page_reached=last_page_reached,
+        max_pages_hit=False,
+        last_page_number=last_page_number,
+        catalog_total_count=catalog_total_count,
+    )
 
 
 def run_catalog_and_snapshot_sync(
     *,
     sync_run: SyncRun,
-    page_limit: int,
+    page_limit: int | None,
+    until_last: bool = False,
+    max_pages: int | None = None,
     snapshot_date: date,
 ) -> None:
-    if page_limit < 1:
-        raise ValueError("page_limit must be >= 1")
+    page_ceiling = _page_ceiling(
+        page_limit=page_limit,
+        until_last=until_last,
+        max_pages=max_pages,
+    )
 
     observed_product_ids: set[str] = set()
+    pages_fetched = 0
+    last_page_reached = False
+    last_page_number: int | None = None
+    catalog_total_count: int | None = None
 
     with PlayStationStoreClient() as client:
-        for page_number in range(1, page_limit + 1):
+        for page_number in range(1, page_ceiling + 1):
             source_url, html = client.fetch_catalog_page(page_number)
             parsed = parse_catalog_page(html, source_url=source_url)
+            pages_fetched = page_number
+            last_page_reached = last_page_reached or parsed.is_last
+            last_page_number = page_number
+            catalog_total_count = parsed.total_count
 
             catalog_result = ingest_catalog_page(
                 sync_run=sync_run,
@@ -105,8 +229,25 @@ def run_catalog_and_snapshot_sync(
                     snapshot_date=snapshot_date,
                     fallback_source_url=source_url,
                 )
+            if until_last and parsed.is_last:
+                break
 
+    if until_last and not last_page_reached:
+        _record_max_pages_exceeded(
+            sync_run=sync_run,
+            pages_fetched=pages_fetched,
+            last_page_number=last_page_number,
+            catalog_total_count=catalog_total_count,
+        )
     finalize_catalog_visibility(sync_run=sync_run, observed_product_ids=observed_product_ids)
+    record_catalog_coverage(
+        sync_run=sync_run,
+        pages_fetched=pages_fetched,
+        last_page_reached=last_page_reached,
+        max_pages_hit=False,
+        last_page_number=last_page_number,
+        catalog_total_count=catalog_total_count,
+    )
 
 
 def _run_snapshot_item(
