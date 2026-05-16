@@ -21,6 +21,16 @@ def _catalog_item(*, concept_id: str, product_ids: tuple[str, ...]) -> CatalogIt
     )
 
 
+def _catalog_item_with_image(*, concept_id: str, product_ids: tuple[str, ...], image_url: str | None) -> CatalogItem:
+    return CatalogItem(
+        concept_id=concept_id,
+        name=f"Game {concept_id}",
+        product_ids=product_ids,
+        image_url=image_url,
+        price=None,
+    )
+
+
 def _catalog_page(items: tuple[CatalogItem, ...]) -> CatalogPage:
     return CatalogPage(
         source_url="https://store.playstation.com/zh-hant-tw/category/test/1",
@@ -66,7 +76,7 @@ def test_ingest_catalog_page_upserts_product_and_marks_visible() -> None:
     assert refreshed_product.id == first_product.id
     assert refreshed_product.concept_id == "223118"
     assert refreshed_product.product_name == "Game 223118"
-    assert refreshed_product.concept_name == "Game 223118"
+    assert refreshed_product.concept_name == "old concept"
     assert refreshed_product.image_url == "https://example.test/image.jpg"
     assert refreshed_product.is_visible is True
     assert refreshed_product.missing_count == 0
@@ -176,3 +186,77 @@ def test_finalize_catalog_visibility_increments_missing_count_for_already_invisi
     assert unseen_count == 1
     assert hidden_product.is_visible is False
     assert hidden_product.missing_count == 3
+
+
+@pytest.mark.django_db
+def test_ingest_catalog_page_accumulates_summary_across_pages() -> None:
+    from ps_price_sync.services.ingestion import ingest_catalog_page
+
+    sync_run = SyncRun.objects.create(sync_type="catalog_only", status="running")
+    first_page = _catalog_page((_catalog_item(concept_id="223118", product_ids=("UP1821-PPSA10990_00-1887411884729257",)),))
+    second_page = _catalog_page((_catalog_item(concept_id="334455", product_ids=()),))
+
+    ingest_catalog_page(sync_run=sync_run, page=first_page, seen_at=django_timezone.now())
+    ingest_catalog_page(sync_run=sync_run, page=second_page, seen_at=django_timezone.now())
+
+    sync_run.refresh_from_db()
+    assert json.loads(sync_run.summary) == {
+        "observed_items": 2,
+        "persisted_products": 1,
+        "skipped_missing_product_id": 1,
+    }
+    assert sync_run.error_count == 1
+
+
+@pytest.mark.django_db
+def test_ingest_catalog_page_keeps_existing_image_url_when_catalog_missing_it() -> None:
+    from ps_price_sync.services.ingestion import ingest_catalog_page
+
+    sync_run = SyncRun.objects.create(sync_type="catalog_only", status="running")
+    StoreProduct.objects.create(
+        product_id="UP1821-PPSA10990_00-1887411884729257",
+        concept_id="223118",
+        product_name="Game 223118",
+        concept_name="",
+        image_url="https://example.test/old-image.jpg",
+        is_visible=False,
+        missing_count=2,
+    )
+    page = _catalog_page(
+        (_catalog_item_with_image(
+            concept_id="223118",
+            product_ids=("UP1821-PPSA10990_00-1887411884729257",),
+            image_url=None,
+        ),),
+    )
+
+    ingest_catalog_page(sync_run=sync_run, page=page, seen_at=django_timezone.now())
+
+    product = StoreProduct.objects.get(product_id="UP1821-PPSA10990_00-1887411884729257")
+    assert product.image_url == "https://example.test/old-image.jpg"
+
+
+@pytest.mark.django_db
+def test_ingest_catalog_page_keeps_existing_non_empty_concept_name() -> None:
+    from ps_price_sync.services.ingestion import ingest_catalog_page
+
+    sync_run = SyncRun.objects.create(sync_type="catalog_only", status="running")
+    StoreProduct.objects.create(
+        product_id="UP1821-PPSA10990_00-1887411884729257",
+        concept_id="223118",
+        product_name="Game 223118",
+        concept_name="Detail concept",
+        is_visible=False,
+        missing_count=2,
+    )
+    page = _catalog_page(
+        (_catalog_item(
+            concept_id="223118",
+            product_ids=("UP1821-PPSA10990_00-1887411884729257",),
+        ),),
+    )
+
+    ingest_catalog_page(sync_run=sync_run, page=page, seen_at=django_timezone.now())
+
+    product = StoreProduct.objects.get(product_id="UP1821-PPSA10990_00-1887411884729257")
+    assert product.concept_name == "Detail concept"

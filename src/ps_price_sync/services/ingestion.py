@@ -32,6 +32,41 @@ def _build_summary(observed_items: int, persisted_products: int, skipped_missing
     )
 
 
+def _load_summary(summary_text: str | None) -> dict[str, int]:
+    if not summary_text:
+        return {
+            "observed_items": 0,
+            "persisted_products": 0,
+            "skipped_missing_product_id": 0,
+        }
+    try:
+        parsed = json.loads(summary_text)
+    except json.JSONDecodeError:
+        return {
+            "observed_items": 0,
+            "persisted_products": 0,
+            "skipped_missing_product_id": 0,
+        }
+    if not isinstance(parsed, dict):
+        return {
+            "observed_items": 0,
+            "persisted_products": 0,
+            "skipped_missing_product_id": 0,
+        }
+
+    def _as_int(value: object) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+    return {
+        "observed_items": _as_int(parsed.get("observed_items")),
+        "persisted_products": _as_int(parsed.get("persisted_products")),
+        "skipped_missing_product_id": _as_int(parsed.get("skipped_missing_product_id")),
+    }
+
+
 def ingest_catalog_page(
     sync_run: SyncRun,
     page: CatalogPage,
@@ -71,8 +106,10 @@ def ingest_catalog_page(
         )
         product.concept_id = item.concept_id
         product.product_name = item.name
-        product.concept_name = item.name
-        product.image_url = item.image_url
+        if not product.concept_name:
+            product.concept_name = item.name
+        if item.image_url:
+            product.image_url = item.image_url
         product.is_visible = True
         product.missing_count = 0
         product.last_seen_at = seen_at
@@ -90,11 +127,13 @@ def ingest_catalog_page(
         )
         persisted_products += 1
 
+    previous_summary = _load_summary(sync_run.summary)
     sync_run.error_count += skipped_missing_product_id
     sync_run.summary = _build_summary(
-        observed_items=len(page.items),
-        persisted_products=persisted_products,
-        skipped_missing_product_id=skipped_missing_product_id,
+        observed_items=previous_summary["observed_items"] + len(page.items),
+        persisted_products=previous_summary["persisted_products"] + persisted_products,
+        skipped_missing_product_id=previous_summary["skipped_missing_product_id"]
+        + skipped_missing_product_id,
     )
     sync_run.updated_at = timezone.now()
     sync_run.save(update_fields=["error_count", "summary", "updated_at"])
