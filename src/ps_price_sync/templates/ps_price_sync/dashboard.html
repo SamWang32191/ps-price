@@ -44,11 +44,29 @@
           <div>失敗</div>
           <div>{{ sync_run.error_count }}</div>
           <div>抓取頁數</div>
-          <div>{{ sync_summary.pages_fetched|default:"-" }}</div>
+          <div>
+            {% if "pages_fetched" in sync_summary %}
+              {{ sync_summary.pages_fetched }}
+            {% else %}
+              -
+            {% endif %}
+          </div>
           <div>Catalog 總數</div>
-          <div>{{ sync_summary.catalog_total_count|default:"-" }}</div>
+          <div>
+            {% if "catalog_total_count" in sync_summary %}
+              {{ sync_summary.catalog_total_count }}
+            {% else %}
+              -
+            {% endif %}
+          </div>
           <div>已到達最後頁</div>
-          <div>{{ sync_summary.last_page_reached|default:False|yesno:"是,否" }}</div>
+          <div>
+            {% if "last_page_reached" in sync_summary %}
+              {{ sync_summary.last_page_reached|yesno:"是,否" }}
+            {% else %}
+              -
+            {% endif %}
+          </div>
         </div>
       {% endwith %}
     {% else %}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+import re
 
 import pytest
 from django.urls import reverse
@@ -65,6 +66,35 @@ def test_dashboard_renders_sync_and_price_summary(client) -> None:
     assert "catalog_and_snapshot" in content
     assert "ParserError" in content
     assert "3" in content
+
+
+@pytest.mark.django_db
+def test_dashboard_shows_zero_counts_but_unknown_last_page_mark(client) -> None:
+    product = _web_product(product_id="P-web-2", name="Zero Summary Game")
+    _web_snapshot(product)
+    run = SyncRun.objects.create(
+        sync_type="catalog_and_snapshot",
+        status="partial",
+        success_count=5,
+        error_count=0,
+        summary='{"pages_fetched": 0, "catalog_total_count": 0}',
+    )
+    SyncError.objects.create(
+        sync_run=run,
+        stage="catalog_fetch",
+        product_id=None,
+        error_type="TransientError",
+        error_message="temporary issue",
+    )
+
+    response = client.get(reverse("dashboard"))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert re.search(r"抓取頁數</div>\s*<div>\s*0\s*</div>", content) is not None
+    assert re.search(r"Catalog 總數</div>\s*<div>\s*0\s*</div>", content) is not None
+    assert "catalog_and_snapshot" in content
+    assert re.search(r"已到達最後頁</div>\s*<div>\s*-\s*</div>", content) is not None
 
 
 @pytest.mark.django_db
