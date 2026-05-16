@@ -135,6 +135,18 @@ def _parse_positive_int(value: int, fallback: int) -> int:
     return parsed if parsed >= 1 else fallback
 
 
+def _parse_bounded_int(value: int, fallback: int, *, min_value: int, max_value: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return fallback
+    if parsed < min_value:
+        return min_value
+    if parsed > max_value:
+        return max_value
+    return parsed
+
+
 def normalize_filters(params) -> ProductListFilters:
     return ProductListFilters(
         query=str(params.get("q", "")).strip(),
@@ -143,7 +155,7 @@ def normalize_filters(params) -> ProductListFilters:
         visibility=str(params.get("visibility", "")).strip(),
         top_category=str(params.get("top_category", "")).strip(),
         page=_parse_positive_int(params.get("page", 1), 1),
-        page_size=50,
+        page_size=_parse_bounded_int(params.get("page_size", 50), 50, min_value=1, max_value=100),
     )
 
 

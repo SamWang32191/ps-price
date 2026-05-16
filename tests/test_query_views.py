@@ -128,3 +128,57 @@ def test_get_dashboard_summary_reads_latest_sync_run_and_counts() -> None:
     assert summary.latest_sync_run.id == sync_run.id
     assert summary.latest_sync_summary["pages_fetched"] == 3
     assert summary.recent_errors[0].error_type == "ParserError"
+
+
+def test_normalize_filters_parses_page_and_page_size() -> None:
+    from ps_price_sync.services.query_views import ProductListFilters, normalize_filters
+
+    filters = normalize_filters(
+        {
+            "q": "game",
+            "state": "PAID",
+            "sale": "1",
+            "visibility": "visible",
+            "top_category": "GAME",
+            "page": "3",
+            "page_size": "25",
+        }
+    )
+
+    assert filters == ProductListFilters(
+        query="game",
+        state="PAID",
+        sale_only=True,
+        visibility="visible",
+        top_category="GAME",
+        page=3,
+        page_size=25,
+    )
+
+
+def test_normalize_filters_clamps_invalid_pagination_values() -> None:
+    from ps_price_sync.services.query_views import ProductListFilters, normalize_filters
+
+    filters = normalize_filters(
+        {
+            "page": "0",
+            "page_size": "0",
+        }
+    )
+    assert filters == ProductListFilters(page=1, page_size=1)
+
+    filters = normalize_filters(
+        {
+            "page": "-5",
+            "page_size": "abc",
+        }
+    )
+    assert filters == ProductListFilters(page=1, page_size=50)
+
+    filters = normalize_filters(
+        {
+            "page": "2",
+            "page_size": "200",
+        }
+    )
+    assert filters == ProductListFilters(page=2, page_size=100)
