@@ -282,6 +282,7 @@ def test_run_catalog_and_snapshot_sync_until_last_fetches_until_last_page(monkey
         snapshot_date=date(2026, 5, 16),
     )
 
+    sync_run.refresh_from_db()
     assert catalog_calls == [1, 2, 3]
     assert json.loads(sync_run.summary) == {
         "pages_fetched": 3,
@@ -478,6 +479,90 @@ def test_run_catalog_sync_until_last_records_error_when_max_pages_hit(monkeypatc
     sync_run.refresh_from_db()
     assert sync_run.error_count == 1
 
+    errors = SyncError.objects.filter(sync_run=sync_run, stage="catalog_traversal", error_type="MaxPagesExceededError")
+    assert errors.count() == 1
+    assert calls["finalize_catalog_visibility"] == 0
+    assert json.loads(sync_run.summary) == {
+        "pages_fetched": 2,
+        "last_page_reached": False,
+        "max_pages_hit": True,
+        "last_page_number": 2,
+        "catalog_total_count": 72,
+    }
+
+
+@pytest.mark.django_db
+def test_run_catalog_and_snapshot_sync_until_last_skips_visibility_finalize_when_max_pages_hit(monkeypatch):
+    class FakeClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return None
+
+        def fetch_catalog_page(self, page: int):
+            return f"https://store.playstation.com/zh-hant-tw/category/test/{page}", f"catalog-page-html-{page}"
+
+    def fake_parse_catalog_page(html: str, source_url: str) -> CatalogPage:
+        del html
+        del source_url
+        return CatalogPage(
+            source_url="https://store.playstation.com/zh-hant-tw/category/test/1",
+            category_id="test",
+            total_count=72,
+            offset=0,
+            size=24,
+            is_last=False,
+            items=(
+                CatalogItem(
+                    concept_id="223118",
+                    name="Game 223118",
+                    product_ids=("UP1821-PPSA10990_00-1887411884729257",),
+                    image_url=None,
+                    price=None,
+                ),
+            ),
+        )
+
+    def fake_ingest_catalog_page(*args, **kwargs):
+        del args, kwargs
+        return CatalogIngestionResult(
+            observed_items=1,
+            persisted_products=1,
+            skipped_missing_product_id=0,
+            observed_product_ids={"UP1821-PPSA10990_00-1887411884729257"},
+        )
+
+    sync_run = SyncRun.objects.create(sync_type="catalog_and_snapshot", status="running")
+    calls = {
+        "finalize_catalog_visibility": 0,
+    }
+
+    def fake_finalize_catalog_visibility(*args, **kwargs):
+        del args, kwargs
+        calls["finalize_catalog_visibility"] += 1
+
+    def fake_run_snapshot_item(*args, **kwargs):
+        del args, kwargs
+        return None
+
+    monkeypatch.setattr(sync_runner, "PlayStationStoreClient", lambda: FakeClient())
+    monkeypatch.setattr(sync_runner, "parse_catalog_page", fake_parse_catalog_page)
+    monkeypatch.setattr(sync_runner, "ingest_catalog_page", fake_ingest_catalog_page)
+    monkeypatch.setattr(sync_runner, "finalize_catalog_visibility", fake_finalize_catalog_visibility)
+    monkeypatch.setattr(sync_runner, "_run_snapshot_item", fake_run_snapshot_item)
+
+    with pytest.raises(sync_runner.MaxPagesExceededError, match="max_pages=2"):
+        sync_runner.run_catalog_and_snapshot_sync(
+            sync_run=sync_run,
+            page_limit=None,
+            until_last=True,
+            max_pages=2,
+            snapshot_date=date(2026, 5, 16),
+        )
+
+    sync_run.refresh_from_db()
+    assert sync_run.error_count == 1
     errors = SyncError.objects.filter(sync_run=sync_run, stage="catalog_traversal", error_type="MaxPagesExceededError")
     assert errors.count() == 1
     assert calls["finalize_catalog_visibility"] == 0
