@@ -240,6 +240,44 @@ def test_ingest_catalog_page_accumulates_summary_across_pages() -> None:
 
 
 @pytest.mark.django_db
+def test_record_catalog_coverage_merges_with_existing_summary() -> None:
+    sync_run = SyncRun.objects.create(
+        sync_type="catalog_and_snapshot",
+        status="running",
+        summary=json.dumps(
+            {
+                "observed_items": 48,
+                "persisted_products": 47,
+                "skipped_missing_product_id": 1,
+            }
+        ),
+    )
+
+    from ps_price_sync.services.ingestion import record_catalog_coverage
+
+    record_catalog_coverage(
+        sync_run=sync_run,
+        pages_fetched=2,
+        last_page_reached=True,
+        max_pages_hit=False,
+        last_page_number=2,
+        catalog_total_count=48,
+    )
+
+    sync_run.refresh_from_db()
+    assert json.loads(sync_run.summary) == {
+        "observed_items": 48,
+        "persisted_products": 47,
+        "skipped_missing_product_id": 1,
+        "pages_fetched": 2,
+        "last_page_reached": True,
+        "max_pages_hit": False,
+        "last_page_number": 2,
+        "catalog_total_count": 48,
+    }
+
+
+@pytest.mark.django_db
 def test_ingest_catalog_page_keeps_existing_image_url_when_catalog_missing_it() -> None:
     from ps_price_sync.services.ingestion import ingest_catalog_page
 
