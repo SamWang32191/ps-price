@@ -177,6 +177,18 @@ def test_seconds_until_next_run_uses_elapsed_time_across_dst() -> None:
     assert scheduler.seconds_until_next_run(now, settings) == 3600.0
 
 
+def test_seconds_until_next_run_uses_future_fold_across_dst() -> None:
+    settings = scheduler.SchedulerSettings(
+        mode="catalog-and-snapshot",
+        max_pages=500,
+        timezone_name="America/New_York",
+        run_at=time(1, 30),
+    )
+    now = datetime(2026, 11, 1, 1, 15, fold=1, tzinfo=ZoneInfo("America/New_York"))
+
+    assert scheduler.seconds_until_next_run(now, settings) == 900.0
+
+
 def test_run_scheduler_loop_logs_failure_and_continues(caplog: pytest.LogCaptureFixture) -> None:
     settings = scheduler.SchedulerSettings(
         mode="catalog-and-snapshot",

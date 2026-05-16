@@ -80,17 +80,38 @@ def next_run_at(now: datetime, settings: SchedulerSettings) -> datetime:
         current_local = now.replace(tzinfo=local_tz)
     else:
         current_local = now.astimezone(local_tz)
-    scheduled = datetime(
+    current_utc = current_local.astimezone(dt_timezone.utc)
+
+    candidates = _scheduled_candidates(
         current_local.year,
         current_local.month,
         current_local.day,
-        settings.run_at.hour,
-        settings.run_at.minute,
-        tzinfo=local_tz,
+        settings.run_at,
+        local_tz,
     )
-    if scheduled < current_local:
-        scheduled += timedelta(days=1)
-    return scheduled
+    for candidate in candidates:
+        if candidate.astimezone(dt_timezone.utc) >= current_utc:
+            return candidate
+
+    tomorrow = current_local + timedelta(days=1)
+    return _scheduled_candidates(
+        tomorrow.year,
+        tomorrow.month,
+        tomorrow.day,
+        settings.run_at,
+        local_tz,
+    )[0]
+
+
+def _scheduled_candidates(year: int, month: int, day: int, run_at: time, local_tz: ZoneInfo) -> list[datetime]:
+    candidates = [
+        datetime(year, month, day, run_at.hour, run_at.minute, tzinfo=local_tz, fold=fold)
+        for fold in (0, 1)
+    ]
+    return sorted(
+        {candidate.astimezone(dt_timezone.utc): candidate for candidate in candidates}.values(),
+        key=lambda candidate: candidate.astimezone(dt_timezone.utc),
+    )
 
 
 def seconds_until_next_run(now: datetime, settings: SchedulerSettings) -> float:
