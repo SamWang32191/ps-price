@@ -103,12 +103,18 @@ th {
   gap: 0.25rem;
 }
 
-.filters input,
+.filters input:not([type="checkbox"]),
 .filters select {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0.45rem 0.55rem;
   min-width: 140px;
+}
+
+.filters .checkbox-label input {
+  border: 0;
+  min-width: initial;
+  padding: 0;
 }
 
 .filters button {

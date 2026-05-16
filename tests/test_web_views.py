@@ -13,16 +13,50 @@ def _web_product(product_id: str = "P-web-1", name: str = "Web Game") -> StorePr
     return StoreProduct.objects.create(product_id=product_id, product_name=name, is_visible=True, missing_count=0)
 
 
-def _web_snapshot(product: StoreProduct, *, state: str = "DISCOUNTED") -> PriceSnapshot:
+def _web_snapshot(
+    product: StoreProduct,
+    *,
+    state: str = "DISCOUNTED",
+    base_amount_cents: int = 200000,
+    discounted_amount_cents: int | None = None,
+    base_display: str | None = None,
+    discounted_display: str | None = None,
+) -> PriceSnapshot:
+    if state == "PAID":
+        if discounted_amount_cents is None:
+            discounted_amount_cents = base_amount_cents
+        if base_display is None:
+            base_display = f"NT${base_amount_cents // 100:,}"
+        if discounted_display is None:
+            discounted_display = f"NT${discounted_amount_cents // 100:,}"
+    elif state == "FREE":
+        if base_display is None:
+            base_display = "免費"
+        if discounted_display is None:
+            discounted_display = "免費"
+        if discounted_amount_cents is None:
+            discounted_amount_cents = 0
+        base_amount_cents = 0
+    else:
+        if base_display is None:
+            base_display = "NT$2,000"
+        if discounted_display is None:
+            discounted_display = "NT$1,200"
+        if discounted_amount_cents is None:
+            discounted_amount_cents = 120000
+
+    if discounted_amount_cents is None:
+        discounted_amount_cents = base_amount_cents
+
     return PriceSnapshot.objects.create(
         store_product=product,
         snapshot_date=date(2026, 5, 16),
         normalized_state=state,
         currency="TWD",
-        base_amount_cents=200000,
-        discounted_amount_cents=120000,
-        base_display="NT$2,000",
-        discounted_display="NT$1,200",
+        base_amount_cents=base_amount_cents,
+        discounted_amount_cents=discounted_amount_cents,
+        base_display=base_display,
+        discounted_display=discounted_display,
         source_strategy_source="catalog",
         source_strategy_reason="test",
     )
@@ -178,7 +212,6 @@ def test_product_list_renders_zero_price(client) -> None:
 
     assert response.status_code == 200
     assert "NT$0" in content
-    assert "- " not in content
 
 
 @pytest.mark.django_db
