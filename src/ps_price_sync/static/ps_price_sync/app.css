@@ -1,0 +1,22 @@
+:root {
+  --bg: #f2f5f9;
+  --text: #1a1d29;
+  --border: #dde3ec;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.site-header {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+main {
+  padding: 1rem;
+}

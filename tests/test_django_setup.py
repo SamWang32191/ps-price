@@ -19,8 +19,12 @@ def test_django_settings_module_is_configured() -> None:
     assert settings.USE_TZ
     assert settings.INSTALLED_APPS == [
         "django.contrib.contenttypes",
+        "django.contrib.staticfiles",
         "ps_price_sync",
     ]
+    assert settings.STATIC_URL == "static/"
+    assert settings.TEMPLATES[0]["BACKEND"] == "django.template.backends.django.DjangoTemplates"
+    assert settings.TEMPLATES[0]["APP_DIRS"] is True
     assert apps.get_app_config("ps_price_sync").name == "ps_price_sync"
     assert import_module(settings.ROOT_URLCONF).__name__ == "ps_price_site.urls"
 
