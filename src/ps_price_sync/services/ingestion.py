@@ -205,7 +205,6 @@ def ingest_product_detail_snapshot(
         product.top_category = detail.top_category
     if source_url:
         product.source_url = source_url
-    product.platforms_raw = json.dumps(list(detail.platforms))
     update_fields = (
         "concept_id",
         "product_name",
@@ -214,9 +213,11 @@ def ingest_product_detail_snapshot(
         "release_date_raw",
         "top_category",
         "source_url",
-        "platforms_raw",
         "updated_at",
     )
+    if detail.platforms:
+        product.platforms_raw = json.dumps(list(detail.platforms))
+        update_fields = (*update_fields, "platforms_raw")
     if created:
         update_fields = (
             *update_fields,

@@ -410,6 +410,47 @@ def test_ingest_product_detail_snapshot_can_create_product_before_catalog() -> N
 
 
 @pytest.mark.django_db
+def test_ingest_product_detail_snapshot_keeps_existing_platforms_raw_when_empty_payload() -> None:
+    sync_run = SyncRun.objects.create(sync_type="snapshot", status="running")
+    StoreProduct.objects.create(
+        product_id="UP1821-PPSA10990_00-1887411884729257",
+        concept_id="223118",
+        product_name="PRAGMATA Game",
+        concept_name="PRAGMATA",
+        platforms_raw=json.dumps(["PS5", "PS4"]),
+        is_visible=None,
+        missing_count=None,
+    )
+    detail = ProductDetail(
+        concept_id="223118",
+        concept_name="PRAGMATA",
+        product_id="UP1821-PPSA10990_00-1887411884729257",
+        product_name="PRAGMATA Game",
+        publisher_name="Capcom",
+        release_date="2026-05-16",
+        platforms=(),
+        top_category="GAME",
+        price=None,
+    )
+    normalized_price = _normalized_price(state=PriceState.PAID)
+    decision = _decision(source="concept_detail")
+
+    from ps_price_sync.services.ingestion import ingest_product_detail_snapshot
+
+    ingest_product_detail_snapshot(
+        sync_run=sync_run,
+        detail=detail,
+        normalized_price=normalized_price,
+        decision=decision,
+        snapshot_date=date(2026, 5, 16),
+        source_url="https://store.playstation.com/zh-hant-tw/concept/223118",
+    )
+
+    product = StoreProduct.objects.get(product_id="UP1821-PPSA10990_00-1887411884729257")
+    assert product.platforms_raw == json.dumps(["PS5", "PS4"])
+
+
+@pytest.mark.django_db
 def test_ingest_snapshot_upserts_same_day_record() -> None:
     sync_run = SyncRun.objects.create(sync_type="catalog_snapshot", status="running")
     product = StoreProduct.objects.create(
