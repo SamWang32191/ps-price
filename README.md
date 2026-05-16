@@ -4,7 +4,7 @@
 
 ## 目前里程碑
 
-目前 repo 已完成 crawler contract stabilization、Django data foundation 與第一版 daily sync scheduler，以及第一版 read-only Dashboard / 商品查詢介面；Docker Compose 尚未開始。這些階段把 PlayStation Store 台灣 SSR 頁面的 spike 收斂成 Django ingestion 可以讀的 crawler adapter contract，並提供可長駐執行的每日同步入口。
+目前 repo 已完成 crawler contract stabilization、Django data foundation、第一版 daily sync scheduler、第一版 read-only Dashboard / 商品查詢介面，以及第一版 Docker Compose 自架部署。這些階段把 PlayStation Store 台灣 SSR 頁面的 spike 收斂成 Django ingestion 可以讀的 crawler adapter contract，並提供可長駐執行的每日同步入口。
 
 已穩定的 crawler contract 包含：
 
@@ -15,7 +15,7 @@
 - catalog-first/detail-fallback source strategy，daily snapshot 先信明確 catalog price，只有缺資料或高風險狀態才查 concept detail。
 - deterministic fixtures 與 offline CI，讓測試不用靠 PlayStation Store 當場心情。
 
-下一個里程碑可聚焦 Docker Compose 自架部署，或再往 admin/手動操作與重跑錯誤功能前進。不要在這個交接點順手塞 auth、通知或 full detail backfill，這種「順手」通常就是專案管理的香蕉皮。
+下一個里程碑可往 admin/手動操作與重跑錯誤功能前進。不要在這個交接點順手塞 auth、通知或 full detail backfill，這種「順手」通常就是專案管理的香蕉皮。
 
 ## Canonical setup and verification
 
@@ -27,6 +27,56 @@ uv run pytest -v
 ```
 
 CI policy：GitHub Actions 只跑離線測試。CI 使用 `uv sync --extra dev --locked` 與 `uv run pytest -v`，不執行 live PlayStation Store crawler commands，也不 capture fixture。
+
+## Docker Compose self-hosting
+
+第一版 Compose 部署檔放在 repo 內，會從同一個 image 啟動：
+
+- `web`：跑 migration 後啟動 read-only Django UI。
+- `scheduler`：等待 `web` healthcheck 通過後，跑每日同步 scheduler。
+
+持久化 SQLite data 放在 repo 外：
+
+```bash
+mkdir -p /Users/samwang/dockercompose/ps-price/data
+```
+
+完整 `docker compose up --build` 會同時啟動 scheduler；如果接近排程時間，可能觸發 live PlayStation Store sync。live sync 不屬於 CI requirement。
+
+完整自架啟動：
+
+```bash
+docker compose up --build
+```
+
+UI 只綁 localhost：
+
+- `http://127.0.0.1:8000/`
+
+只想啟動 UI，不跑每日同步時：
+
+```bash
+docker compose up --build web
+```
+
+Compose 內使用 `/data/db.sqlite3`。如果 SQLite 無法建立或寫入，先檢查 `/Users/samwang/dockercompose/ps-price/data` 的 owner 與寫入權限。
+
+必跑 smoke checks：
+
+```bash
+docker compose config
+docker compose build
+docker compose run --rm web uv run python manage.py shell -c "from django.conf import settings; print(settings.DATABASES['default']['NAME'])"
+docker compose run --rm web uv run python manage.py migrate --noinput
+docker compose run --rm web uv run python manage.py migrate --check
+docker compose up -d --build web
+```
+
+確認 `http://127.0.0.1:8000/` 回應後可關閉：
+
+```bash
+docker compose down
+```
 
 ## Django setup and sync usage
 
