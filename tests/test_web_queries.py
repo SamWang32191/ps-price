@@ -6,7 +6,7 @@ from ps_price_web.formatting import format_money_twd, format_raw_json_list
 import pytest
 
 from ps_price_sync.models import PriceSnapshot, StoreProduct
-from ps_price_web.queries import get_latest_deals
+from ps_price_web.queries import get_latest_deals, get_product_detail
 
 
 def create_product(
@@ -105,3 +105,52 @@ def test_get_latest_deals_searches_product_and_concept_name() -> None:
 
     assert [deal.product.product_id for deal in get_latest_deals(query="fantasy")] == ["P-PRODUCT"]
     assert [deal.product.product_id for deal in get_latest_deals(query="hunter")] == ["P-CONCEPT"]
+
+
+@pytest.mark.django_db
+def test_get_product_detail_returns_latest_snapshot_and_regular_historical_low() -> None:
+    product = create_product("P-DETAIL", "Detail")
+
+    create_snapshot(product, date(2026, 5, 14), "PAID", base=120000)
+    create_snapshot(product, date(2026, 5, 15), "PS_PLUS", base=120000, discounted=20000)
+    create_snapshot(product, date(2026, 5, 16), "DISCOUNTED", base=120000, discounted=70000)
+
+    detail = get_product_detail("P-DETAIL")
+
+    assert detail.product.product_id == "P-DETAIL"
+    assert detail.latest_snapshot.snapshot_date == date(2026, 5, 16)
+    assert detail.current_price_amount_cents == 70000
+    assert detail.current_price_display is None
+    assert detail.regular_low_amount_cents == 70000
+    assert detail.regular_low_date == date(2026, 5, 16)
+    assert [snapshot.snapshot_date for snapshot in detail.snapshots] == [
+        date(2026, 5, 16),
+        date(2026, 5, 15),
+        date(2026, 5, 14),
+    ]
+
+
+@pytest.mark.django_db
+def test_get_product_detail_regular_low_ignores_free_and_unavailable_states() -> None:
+    product = create_product("P-REGULAR-LOW", "Regular Low")
+
+    create_snapshot(product, date(2026, 5, 14), "FREE", base=0)
+    create_snapshot(product, date(2026, 5, 15), "UNKNOWN", base=100000, discounted=50000)
+    create_snapshot(product, date(2026, 5, 16), "PAID", base=90000)
+
+    detail = get_product_detail("P-REGULAR-LOW")
+
+    assert detail.regular_low_amount_cents == 90000
+    assert detail.regular_low_date == date(2026, 5, 16)
+
+
+@pytest.mark.django_db
+def test_get_product_detail_handles_product_without_snapshots() -> None:
+    product = create_product("P-NO-SNAPSHOT", "No Snapshot")
+
+    detail = get_product_detail("P-NO-SNAPSHOT")
+
+    assert detail.latest_snapshot is None
+    assert detail.regular_low_amount_cents is None
+    assert detail.regular_low_date is None
+    assert detail.snapshots == []
