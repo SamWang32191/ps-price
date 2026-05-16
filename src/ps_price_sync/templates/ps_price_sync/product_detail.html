@@ -32,6 +32,7 @@
       <dl class="definition-grid">
         <div><dt>商品名稱</dt><dd>{{ detail.product.product_name }}</dd></div>
         <div><dt>遊戲代號</dt><dd>{{ detail.product.product_id }}</dd></div>
+        <div><dt>概念代號</dt><dd>{{ detail.product.concept_id|default:"-" }}</dd></div>
         <div><dt>分類</dt><dd>{{ detail.product.top_category|default:"-" }}</dd></div>
         <div><dt>出版商</dt><dd>{{ detail.product.publisher_name|default:"-" }}</dd></div>
         <div><dt>上市日期</dt><dd>{{ detail.product.release_date_raw|default:"-" }}</dd></div>

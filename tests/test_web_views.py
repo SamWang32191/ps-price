@@ -224,6 +224,20 @@ def test_product_detail_returns_404_for_unknown_product(client) -> None:
 @pytest.mark.django_db
 def test_product_detail_renders_current_price_lows_chart_and_snapshot_table(client) -> None:
     product = _web_product("P-detail-1", "Detail Game")
+    product.concept_id = "C-detail-1"
+    product.publisher_name = "Detail Studio"
+    product.release_date_raw = "2026-01-01"
+    product.top_category = "RPG"
+    product.source_url = "https://example.com/detail-game"
+    product.save(
+        update_fields=[
+            "concept_id",
+            "publisher_name",
+            "release_date_raw",
+            "top_category",
+            "source_url",
+        ]
+    )
     PriceSnapshot.objects.create(
         store_product=product,
         snapshot_date=date(2026, 5, 14),
@@ -233,6 +247,18 @@ def test_product_detail_renders_current_price_lows_chart_and_snapshot_table(clie
         discounted_amount_cents=200000,
         base_display="NT$2,000",
         discounted_display="NT$2,000",
+        source_strategy_source="catalog",
+        source_strategy_reason="test",
+    )
+    PriceSnapshot.objects.create(
+        store_product=product,
+        snapshot_date=date(2026, 5, 13),
+        normalized_state="FREE",
+        currency="TWD",
+        base_amount_cents=0,
+        discounted_amount_cents=0,
+        base_display="NT$0",
+        discounted_display="NT$0",
         source_strategy_source="catalog",
         source_strategy_reason="test",
     )
@@ -268,6 +294,12 @@ def test_product_detail_renders_current_price_lows_chart_and_snapshot_table(clie
 
     assert response.status_code == 200
     assert "Detail Game" in content
+    assert "P-detail-1" in content
+    assert "C-detail-1" in content
+    assert "Detail Studio" in content
+    assert "RPG" in content
+    assert "2026-01-01" in content
+    assert 'https://example.com/detail-game' in content
     assert "一般歷史低價" in content
     assert "NT$1,200" in content
     assert "PS Plus 歷史低價" in content
@@ -275,6 +307,7 @@ def test_product_detail_renders_current_price_lows_chart_and_snapshot_table(clie
     assert "<svg" in content
     assert "每日價格紀錄" in content
     assert "限時優惠" in content
+    assert "NT$0" in content
 
 
 def test_twd_cents_template_filter_formats_integer_cents() -> None:

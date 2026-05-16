@@ -228,14 +228,15 @@ def test_build_chart_points_uses_only_general_numeric_prices() -> None:
     product = _product()
     paid = _snapshot(product, snapshot_date=date(2026, 5, 14), state="PAID", base=200000, discounted=200000)
     discounted = _snapshot(product, snapshot_date=date(2026, 5, 15), state="DISCOUNTED", base=200000, discounted=100000)
-    _snapshot(product, snapshot_date=date(2026, 5, 16), state="PS_PLUS", base=200000, discounted=90000, plus=90000)
+    plus = _snapshot(product, snapshot_date=date(2026, 5, 16), state="PS_PLUS", base=200000, discounted=90000, plus=90000)
 
     from ps_price_sync.services.query_views import build_chart_points
 
-    points = build_chart_points([paid, discounted])
+    points = build_chart_points([paid, discounted, plus])
 
     assert len(points) == 2
     assert points[0].snapshot_date == date(2026, 5, 14)
     assert points[0].amount_cents == 200000
     assert points[1].snapshot_date == date(2026, 5, 15)
     assert points[1].amount_cents == 100000
+    assert all(point.amount_cents != 90000 for point in points)
