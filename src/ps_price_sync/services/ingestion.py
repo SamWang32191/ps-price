@@ -108,7 +108,7 @@ def ingest_catalog_page(
 
 
 def finalize_catalog_visibility(sync_run: SyncRun, observed_product_ids: set[str]) -> int:
-    unseen = StoreProduct.objects.filter(is_visible=True).exclude(product_id__in=observed_product_ids)
+    unseen = StoreProduct.objects.exclude(product_id__in=observed_product_ids)
     unseen_count = unseen.count()
 
     for product in unseen:

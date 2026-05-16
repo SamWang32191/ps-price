@@ -143,3 +143,36 @@ def test_finalize_catalog_visibility_marks_unseen_products_missing() -> None:
     assert StoreProduct.objects.get(product_id="UP1821-PPSA10990_00-1887411884729257").is_visible is True
     assert missing_product.is_visible is False
     assert missing_product.missing_count == 3
+
+
+@pytest.mark.django_db
+def test_finalize_catalog_visibility_increments_missing_count_for_already_invisible_products() -> None:
+    from ps_price_sync.services.ingestion import finalize_catalog_visibility
+
+    sync_run = SyncRun.objects.create(sync_type="catalog_only", status="running")
+    StoreProduct.objects.create(
+        product_id="UP1821-PPSA10990_00-1887411884729257",
+        concept_id="223118",
+        product_name="Game 223118",
+        concept_name="",
+        is_visible=True,
+        missing_count=0,
+    )
+    hidden_product = StoreProduct.objects.create(
+        product_id="HP0000-PSAB00000_00-HIDDEN",
+        concept_id="100051",
+        product_name="Game 100051",
+        concept_name="",
+        is_visible=False,
+        missing_count=2,
+    )
+
+    unseen_count = finalize_catalog_visibility(
+        sync_run,
+        observed_product_ids={"UP1821-PPSA10990_00-1887411884729257"},
+    )
+
+    hidden_product.refresh_from_db()
+    assert unseen_count == 1
+    assert hidden_product.is_visible is False
+    assert hidden_product.missing_count == 3
