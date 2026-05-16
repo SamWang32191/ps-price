@@ -274,6 +274,9 @@ def build_chart_points(snapshots: list[PriceSnapshot]) -> list[ChartPoint]:
     amounts = [amount for _, amount in priced]
     min_amount = min(amounts)
     max_amount = max(amounts)
+    plot_min = 4.0
+    plot_max = 96.0
+    plot_span = plot_max - plot_min
     span = max(max_amount - min_amount, 1)
     point_count = max(len(priced) - 1, 1)
 
@@ -281,8 +284,8 @@ def build_chart_points(snapshots: list[PriceSnapshot]) -> list[ChartPoint]:
         ChartPoint(
             snapshot_date=snapshot.snapshot_date,
             amount_cents=amount,
-            x=round((index / point_count) * 100, 2),
-            y=round(100 - ((amount - min_amount) / span) * 100, 2),
+            x=round(plot_min + (index / point_count) * plot_span, 2),
+            y=round(plot_min + ((max_amount - amount) / span) * plot_span, 2),
         )
         for index, (snapshot, amount) in enumerate(priced)
     ]

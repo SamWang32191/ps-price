@@ -49,6 +49,7 @@ main {
   margin-top: 0.3rem;
   font-weight: 700;
   font-size: 1.35rem;
+  overflow-wrap: anywhere;
 }
 
 .panel {

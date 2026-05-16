@@ -240,3 +240,5 @@ def test_build_chart_points_uses_only_general_numeric_prices() -> None:
     assert points[1].snapshot_date == date(2026, 5, 15)
     assert points[1].amount_cents == 100000
     assert all(point.amount_cents != 90000 for point in points)
+    assert all(4.0 <= point.x <= 96.0 for point in points)
+    assert all(4.0 <= point.y <= 96.0 for point in points)
