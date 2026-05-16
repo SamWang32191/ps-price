@@ -75,8 +75,8 @@ def _upsert_snapshot(
     snapshot_date,
     normalized_price: NormalizedPrice,
     decision: SnapshotSourceDecision,
-) -> None:
-    PriceSnapshot.objects.update_or_create(
+) -> PriceSnapshot:
+    snapshot, _ = PriceSnapshot.objects.update_or_create(
         store_product=store_product,
         snapshot_date=snapshot_date,
         defaults={
@@ -95,6 +95,7 @@ def _upsert_snapshot(
             "source_strategy_reason_codes_raw": json.dumps(list(decision.reason_codes)),
         },
     )
+    return snapshot
 
 
 def ingest_catalog_snapshot(
@@ -104,7 +105,7 @@ def ingest_catalog_snapshot(
     decision: SnapshotSourceDecision,
     snapshot_date,
     source_url: str,
-) -> None:
+) -> PriceSnapshot | None:
     _ = sync_run
     product_id = _first_product_id(item)
     if not product_id:
@@ -151,7 +152,7 @@ def ingest_catalog_snapshot(
         update_fields=update_fields
     )
 
-    _upsert_snapshot(
+    return _upsert_snapshot(
         store_product=product,
         snapshot_date=snapshot_date,
         normalized_price=normalized_price,
@@ -166,7 +167,7 @@ def ingest_product_detail_snapshot(
     decision: SnapshotSourceDecision,
     snapshot_date,
     source_url: str,
-) -> None:
+) -> PriceSnapshot | None:
     _ = sync_run
     product_id = detail.product_id
     if not product_id:
@@ -227,7 +228,7 @@ def ingest_product_detail_snapshot(
 
     product.save(update_fields=update_fields)
 
-    _upsert_snapshot(
+    return _upsert_snapshot(
         store_product=product,
         snapshot_date=snapshot_date,
         normalized_price=normalized_price,

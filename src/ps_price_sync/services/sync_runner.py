@@ -4,10 +4,10 @@ from datetime import date, datetime
 
 from django.utils import timezone
 from ps_price_crawler.catalog import normalize_catalog_item_price, parse_catalog_page
-from ps_price_crawler.client import PlayStationStoreClient
+from ps_price_crawler.client import PlayStationStoreClient, concept_url
 from ps_price_crawler.product import normalize_product_detail_price, parse_product_detail
 from ps_price_crawler.source_strategy import choose_snapshot_source
-from ps_price_sync.models import PriceSnapshot, SyncRun
+from ps_price_sync.models import SyncRun
 from ps_price_sync.services.ingestion import (
     finalize_catalog_visibility,
     ingest_catalog_page,
@@ -67,41 +67,37 @@ def run_snapshot_sync(
                 decision = choose_snapshot_source(item, normalized_price)
 
                 if decision.source == "catalog" and item.product_ids:
-                    ingest_catalog_snapshot(
+                    snapshot = ingest_catalog_snapshot(
                         sync_run=sync_run,
                         item=item,
                         normalized_price=normalized_price,
                         decision=decision,
                         snapshot_date=snapshot_date,
-                        source_url=page_source_url,
+                        source_url=concept_url(item.concept_id),
                     )
-                    product_id = item.product_ids[0]
                 else:
-                    concept_url, concept_html = client.fetch_concept(item.concept_id)
-                    detail = parse_product_detail(concept_html, concept_id=item.concept_id, catalog_price=item.price)
-                    detail_normalized_price = normalize_product_detail_price(detail, source="concept_detail")
-                    ingest_product_detail_snapshot(
+                    concept_source_url, concept_html = client.fetch_concept(item.concept_id)
+                    detail = parse_product_detail(
+                        concept_html,
+                        concept_id=item.concept_id,
+                        catalog_price=item.price,
+                    )
+                    detail_normalized_price = normalize_product_detail_price(
+                        detail,
+                        source="concept_detail",
+                    )
+                    snapshot = ingest_product_detail_snapshot(
                         sync_run=sync_run,
                         detail=detail,
                         normalized_price=detail_normalized_price,
                         decision=decision,
                         snapshot_date=snapshot_date,
-                        source_url=concept_url,
+                        source_url=concept_source_url,
                     )
-                    product_id = detail.product_id
 
-                if _snapshot_exists(product_id=product_id, snapshot_date=snapshot_date):
+                if snapshot is not None:
                     written_count += 1
 
     if written_count:
         sync_run.success_count += written_count
         sync_run.save(update_fields=["success_count", "updated_at"])
-
-
-def _snapshot_exists(*, product_id: str | None, snapshot_date: date) -> bool:
-    if not product_id:
-        return False
-    return PriceSnapshot.objects.filter(
-        store_product__product_id=product_id,
-        snapshot_date=snapshot_date,
-    ).exists()
