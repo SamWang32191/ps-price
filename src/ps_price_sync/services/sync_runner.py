@@ -110,15 +110,14 @@ def run_catalog_sync(
             if until_last and parsed.is_last:
                 break
 
-        if until_last and not last_page_reached:
-            _record_max_pages_exceeded(
-                sync_run=sync_run,
-                pages_fetched=pages_fetched,
-                last_page_number=last_page_number,
-                catalog_total_count=catalog_total_count,
-            )
-
     finalize_catalog_visibility(sync_run=sync_run, observed_product_ids=observed_product_ids)
+    if until_last and not last_page_reached:
+        _record_max_pages_exceeded(
+            sync_run=sync_run,
+            pages_fetched=pages_fetched,
+            last_page_number=last_page_number,
+            catalog_total_count=catalog_total_count,
+        )
     record_catalog_coverage(
         sync_run=sync_run,
         pages_fetched=pages_fetched,

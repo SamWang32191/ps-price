@@ -455,10 +455,16 @@ def test_run_catalog_sync_until_last_records_error_when_max_pages_hit(monkeypatc
 
     sync_run = SyncRun.objects.create(sync_type="catalog_only", status="running")
 
+    calls = {"finalize_catalog_visibility": 0}
+
+    def fake_finalize_catalog_visibility(*args, **kwargs):
+        del args, kwargs
+        calls["finalize_catalog_visibility"] += 1
+
     monkeypatch.setattr(sync_runner, "PlayStationStoreClient", lambda: FakeClient())
     monkeypatch.setattr(sync_runner, "parse_catalog_page", fake_parse_catalog_page)
     monkeypatch.setattr(sync_runner, "ingest_catalog_page", fake_ingest_catalog_page)
-    monkeypatch.setattr(sync_runner, "finalize_catalog_visibility", lambda *args, **kwargs: None)
+    monkeypatch.setattr(sync_runner, "finalize_catalog_visibility", fake_finalize_catalog_visibility)
 
     with pytest.raises(sync_runner.MaxPagesExceededError, match="max_pages=2"):
         sync_runner.run_catalog_sync(
@@ -474,3 +480,4 @@ def test_run_catalog_sync_until_last_records_error_when_max_pages_hit(monkeypatc
 
     errors = SyncError.objects.filter(sync_run=sync_run, stage="catalog_traversal", error_type="MaxPagesExceededError")
     assert errors.count() == 1
+    assert calls["finalize_catalog_visibility"] == 1
