@@ -141,6 +141,47 @@ def test_product_list_applies_query_and_sale_filter(client) -> None:
 
 
 @pytest.mark.django_db
+def test_product_list_renders_visibility_and_category_filters(client) -> None:
+    product = _web_product("P-list-4", "Category Game")
+    product.top_category = "RPG"
+    product.save(update_fields=["top_category"])
+    _web_snapshot(product)
+
+    response = client.get(reverse("product-list"))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert 'name="visibility"' in content
+    assert 'name="top_category"' in content
+    assert 'value="RPG"' in content
+
+
+@pytest.mark.django_db
+def test_product_list_renders_zero_price(client) -> None:
+    product = _web_product("P-list-5", "Zero Price")
+    PriceSnapshot.objects.create(
+        store_product=product,
+        snapshot_date=date(2026, 5, 16),
+        normalized_state="DISCOUNTED",
+        currency="TWD",
+        base_amount_cents=0,
+        discounted_amount_cents=None,
+        plus_amount_cents=None,
+        base_display=None,
+        discounted_display=None,
+        source_strategy_source="catalog",
+        source_strategy_reason="test",
+    )
+
+    response = client.get(reverse("product-list"), {"q": "Zero"})
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "NT$0" in content
+    assert "- " not in content
+
+
+@pytest.mark.django_db
 def test_product_detail_returns_404_for_unknown_product(client) -> None:
     response = client.get(reverse("product-detail", kwargs={"product_id": "missing-product"}))
 
@@ -151,4 +192,19 @@ def test_twd_cents_template_filter_formats_integer_cents() -> None:
     from ps_price_sync.templatetags.price_format import twd_cents
 
     assert twd_cents(120000) == "NT$1,200"
+    assert twd_cents(0) == "NT$0"
     assert twd_cents(None) == "-"
+
+
+def test_snapshot_price_display_prefers_display_text_over_cents() -> None:
+    from ps_price_sync.templatetags.price_format import snapshot_price_display
+    from ps_price_sync.models import PriceSnapshot
+
+    snapshot = PriceSnapshot(
+        base_amount_cents=0,
+        discounted_amount_cents=120000,
+        base_display="免費",
+        discounted_display="NT$999",
+    )
+
+    assert snapshot_price_display(snapshot) == "NT$999"

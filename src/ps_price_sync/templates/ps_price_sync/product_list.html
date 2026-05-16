@@ -20,6 +20,24 @@
         </select>
       </div>
       <div class="form-row">
+        <label for="visibility">可見性</label>
+        <select id="visibility" name="visibility">
+          <option value="" {% if not result.filters.visibility %}selected{% endif %}>全部</option>
+          <option value="visible" {% if result.filters.visibility == "visible" %}selected{% endif %}>可見</option>
+          <option value="hidden" {% if result.filters.visibility == "hidden" %}selected{% endif %}>已隱藏</option>
+          <option value="unknown" {% if result.filters.visibility == "unknown" %}selected{% endif %}>未知</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="top_category">分類</label>
+        <select id="top_category" name="top_category">
+          <option value="" {% if not result.filters.top_category %}selected{% endif %}>全部</option>
+          {% for category in result.category_options %}
+            <option value="{{ category }}" {% if category == result.filters.top_category %}selected{% endif %}>{{ category }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-row">
         <label class="checkbox-label">
           <input type="checkbox" name="sale" value="1" {% if result.filters.sale_only %}checked{% endif %}>
           僅特價
@@ -54,13 +72,7 @@
                     <div class="subtext">{{ product.product_id }}</div>
                   </td>
                   <td>{{ snapshot.normalized_state|default:"-" }}</td>
-                  <td>
-                    {% if snapshot and snapshot.discounted_amount_cents %}
-                      {{ snapshot.discounted_amount_cents|twd_cents }}
-                    {% else %}
-                      {{ snapshot.base_amount_cents|default:None|twd_cents }}
-                    {% endif %}
-                  </td>
+                  <td>{{ snapshot|snapshot_price_display }}</td>
                   <td>{{ row.price_summary.general_low_amount_cents|twd_cents }}</td>
                   <td>
                     {% if product.is_visible is True %}可見{% elif product.is_visible is False %}隱藏{% else %}未知{% endif %}
