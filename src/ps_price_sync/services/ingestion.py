@@ -6,8 +6,10 @@ import json
 
 from django.utils import timezone
 
-from ps_price_crawler.models import CatalogItem, CatalogPage
-from ps_price_sync.models import StoreProduct, SyncError, SyncRun
+from ps_price_crawler.models import CatalogItem, CatalogPage, ProductDetail
+from ps_price_crawler.price_contract import NormalizedPrice
+from ps_price_crawler.source_strategy import SnapshotSourceDecision
+from ps_price_sync.models import PriceSnapshot, StoreProduct, SyncError, SyncRun
 
 
 @dataclass(frozen=True)
@@ -65,6 +67,169 @@ def _load_summary(summary_text: str | None) -> dict[str, int]:
         "persisted_products": _as_int(parsed.get("persisted_products")),
         "skipped_missing_product_id": _as_int(parsed.get("skipped_missing_product_id")),
     }
+
+
+def _upsert_snapshot(
+    *,
+    store_product: StoreProduct,
+    snapshot_date,
+    normalized_price: NormalizedPrice,
+    decision: SnapshotSourceDecision,
+) -> None:
+    PriceSnapshot.objects.update_or_create(
+        store_product=store_product,
+        snapshot_date=snapshot_date,
+        defaults={
+            "normalized_state": normalized_price.state.value,
+            "currency": normalized_price.currency,
+            "base_amount_cents": normalized_price.base_amount_cents,
+            "discounted_amount_cents": normalized_price.discounted_amount_cents,
+            "plus_amount_cents": normalized_price.plus_amount_cents,
+            "base_display": normalized_price.base_display,
+            "discounted_display": normalized_price.discounted_display,
+            "discount_text": normalized_price.discount_text,
+            "service_branding_raw": json.dumps(list(normalized_price.service_branding)),
+            "upsell_text": normalized_price.upsell_text,
+            "source_strategy_source": decision.source,
+            "source_strategy_reason": decision.reason,
+            "source_strategy_reason_codes_raw": json.dumps(list(decision.reason_codes)),
+        },
+    )
+
+
+def ingest_catalog_snapshot(
+    sync_run: SyncRun,
+    item: CatalogItem,
+    normalized_price: NormalizedPrice,
+    decision: SnapshotSourceDecision,
+    snapshot_date,
+    source_url: str,
+) -> None:
+    _ = sync_run
+    product_id = _first_product_id(item)
+    if not product_id:
+        return
+
+    product, created = StoreProduct.objects.get_or_create(
+        product_id=product_id,
+        defaults={
+            "concept_id": item.concept_id,
+            "product_name": item.name,
+            "concept_name": item.name,
+            "image_url": item.image_url,
+            "source_url": source_url,
+            "platforms_raw": json.dumps([]),
+            "is_visible": True,
+            "missing_count": 0,
+        },
+    )
+
+    product.concept_id = item.concept_id
+    if not product.product_name:
+        product.product_name = item.name
+    if not product.concept_name:
+        product.concept_name = item.name
+    if item.image_url:
+        product.image_url = item.image_url
+    if source_url:
+        product.source_url = source_url
+    if not created:
+        product.is_visible = True
+        product.missing_count = 0
+    product.save(
+        update_fields=(
+            "concept_id",
+            "product_name",
+            "concept_name",
+            "image_url",
+            "source_url",
+            "is_visible",
+            "missing_count",
+            "updated_at",
+        )
+    )
+
+    _upsert_snapshot(
+        store_product=product,
+        snapshot_date=snapshot_date,
+        normalized_price=normalized_price,
+        decision=decision,
+    )
+
+
+def ingest_product_detail_snapshot(
+    sync_run: SyncRun,
+    detail: ProductDetail,
+    normalized_price: NormalizedPrice,
+    decision: SnapshotSourceDecision,
+    snapshot_date,
+    source_url: str,
+) -> None:
+    _ = sync_run
+    product_id = detail.product_id
+    if not product_id:
+        return
+
+    product_name = detail.product_name or detail.concept_name or detail.concept_id
+    if not product_name:
+        return
+
+    product, created = StoreProduct.objects.get_or_create(
+        product_id=product_id,
+        defaults={
+            "concept_id": detail.concept_id,
+            "product_name": product_name,
+            "concept_name": detail.concept_name,
+            "publisher_name": detail.publisher_name,
+            "release_date_raw": detail.release_date,
+            "top_category": detail.top_category,
+            "platforms_raw": json.dumps(list(detail.platforms)),
+            "source_url": source_url,
+            "is_visible": None,
+            "missing_count": None,
+        },
+    )
+
+    product.concept_id = detail.concept_id
+    if detail.concept_name:
+        product.concept_name = detail.concept_name
+    if detail.product_name:
+        product.product_name = detail.product_name
+    if detail.publisher_name:
+        product.publisher_name = detail.publisher_name
+    if detail.release_date:
+        product.release_date_raw = detail.release_date
+    if detail.top_category:
+        product.top_category = detail.top_category
+    if source_url:
+        product.source_url = source_url
+    product.platforms_raw = json.dumps(list(detail.platforms))
+    update_fields = (
+        "concept_id",
+        "product_name",
+        "concept_name",
+        "publisher_name",
+        "release_date_raw",
+        "top_category",
+        "source_url",
+        "platforms_raw",
+        "updated_at",
+    )
+    if created:
+        update_fields = (
+            *update_fields,
+            "is_visible",
+            "missing_count",
+        )
+
+    product.save(update_fields=update_fields)
+
+    _upsert_snapshot(
+        store_product=product,
+        snapshot_date=snapshot_date,
+        normalized_price=normalized_price,
+        decision=decision,
+    )
 
 
 def ingest_catalog_page(

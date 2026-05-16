@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+from datetime import date
 from datetime import datetime
 from datetime import timezone
 import json
 
 import pytest
 from django.utils import timezone as django_timezone
+from ps_price_crawler.price_contract import NormalizedPrice, PriceState
+from ps_price_crawler.source_strategy import SnapshotSource, SnapshotSourceDecision
 
-from ps_price_crawler.models import CatalogItem, CatalogPage
-from ps_price_sync.models import StoreProduct, SyncError, SyncRun
+from ps_price_crawler.models import CatalogItem, CatalogPage, ProductDetail
+from ps_price_sync.models import PriceSnapshot, StoreProduct, SyncError, SyncRun
 
 
 def _catalog_item(*, concept_id: str, product_ids: tuple[str, ...]) -> CatalogItem:
@@ -40,6 +43,34 @@ def _catalog_page(items: tuple[CatalogItem, ...]) -> CatalogPage:
         size=24,
         is_last=True,
         items=items,
+    )
+
+
+def _normalized_price(*, state: PriceState = PriceState.PAID) -> NormalizedPrice:
+    return NormalizedPrice(
+        state=state,
+        currency="TWD",
+        base_amount_cents=169000,
+        discounted_amount_cents=139000,
+        plus_amount_cents=None,
+        base_display="NT$1,690",
+        discounted_display="NT$1,390",
+        discount_text="限時優惠",
+        service_branding=("PS Plus",),
+        upsell_text="訂閱享好禮",
+        source="catalog",
+        raw_missing_reason=None,
+    )
+
+
+def _decision(*, source: SnapshotSource = "catalog") -> SnapshotSourceDecision:
+    return SnapshotSourceDecision(
+        source=source,
+        reason="test_reason",
+        reason_codes=("test_reason",),
+        normalized_state=PriceState.PAID,
+        product_ids=("UP1821-PPSA10990_00-1887411884729257",),
+        missing_metadata_fields=(),
     )
 
 
@@ -260,3 +291,138 @@ def test_ingest_catalog_page_keeps_existing_non_empty_concept_name() -> None:
 
     product = StoreProduct.objects.get(product_id="UP1821-PPSA10990_00-1887411884729257")
     assert product.concept_name == "Detail concept"
+
+
+@pytest.mark.django_db
+def test_ingest_catalog_snapshot_writes_snapshot_without_detail() -> None:
+    sync_run = SyncRun.objects.create(sync_type="catalog_snapshot", status="running")
+    item = _catalog_item(
+        concept_id="223118",
+        product_ids=("UP1821-PPSA10990_00-1887411884729257",),
+    )
+    normalized_price = _normalized_price(state=PriceState.PAID)
+    decision = _decision(source="catalog")
+
+    from ps_price_sync.services.ingestion import ingest_catalog_snapshot
+
+    ingest_catalog_snapshot(
+        sync_run=sync_run,
+        item=item,
+        normalized_price=normalized_price,
+        decision=decision,
+        snapshot_date=date(2026, 5, 16),
+        source_url="https://store.playstation.com/zh-hant-tw/catalog/223118",
+    )
+
+    product = StoreProduct.objects.get(product_id="UP1821-PPSA10990_00-1887411884729257")
+    snapshot = PriceSnapshot.objects.get(store_product=product, snapshot_date=date(2026, 5, 16))
+
+    assert product.concept_id == "223118"
+    assert product.product_name == "Game 223118"
+    assert product.source_url == "https://store.playstation.com/zh-hant-tw/catalog/223118"
+    assert snapshot.normalized_state == PriceState.PAID.value
+    assert snapshot.currency == "TWD"
+    assert snapshot.base_amount_cents == 169000
+    assert snapshot.discounted_amount_cents == 139000
+    assert snapshot.base_display == "NT$1,690"
+    assert snapshot.discounted_display == "NT$1,390"
+    assert snapshot.discount_text == "限時優惠"
+    assert snapshot.service_branding_raw == json.dumps(["PS Plus"])
+    assert snapshot.upsell_text == "訂閱享好禮"
+    assert snapshot.source_strategy_source == "catalog"
+    assert snapshot.source_strategy_reason == "test_reason"
+    assert snapshot.source_strategy_reason_codes_raw == json.dumps(["test_reason"])
+
+
+@pytest.mark.django_db
+def test_ingest_product_detail_snapshot_can_create_product_before_catalog() -> None:
+    sync_run = SyncRun.objects.create(sync_type="snapshot", status="running")
+    detail = ProductDetail(
+        concept_id="223118",
+        concept_name="PRAGMATA",
+        product_id="UP1821-PPSA10990_00-1887411884729257",
+        product_name="PRAGMATA Game",
+        publisher_name="Capcom",
+        release_date="2026-05-16",
+        platforms=("PS5", "PS4"),
+        top_category="GAME",
+        price=None,
+    )
+    normalized_price = _normalized_price(state=PriceState.PAID)
+    decision = _decision(source="concept_detail")
+
+    from ps_price_sync.services.ingestion import ingest_product_detail_snapshot
+
+    ingest_product_detail_snapshot(
+        sync_run=sync_run,
+        detail=detail,
+        normalized_price=normalized_price,
+        decision=decision,
+        snapshot_date=date(2026, 5, 16),
+        source_url="https://store.playstation.com/zh-hant-tw/concept/223118",
+    )
+
+    product = StoreProduct.objects.get(product_id="UP1821-PPSA10990_00-1887411884729257")
+    snapshot = PriceSnapshot.objects.get(store_product=product, snapshot_date=date(2026, 5, 16))
+
+    assert product.concept_id == "223118"
+    assert product.concept_name == "PRAGMATA"
+    assert product.product_name == "PRAGMATA Game"
+    assert product.publisher_name == "Capcom"
+    assert product.release_date_raw == "2026-05-16"
+    assert product.top_category == "GAME"
+    assert product.platforms_raw == json.dumps(["PS5", "PS4"])
+    assert product.source_url == "https://store.playstation.com/zh-hant-tw/concept/223118"
+    assert product.is_visible is None
+    assert product.missing_count is None
+    assert snapshot.source_strategy_source == "concept_detail"
+
+
+@pytest.mark.django_db
+def test_ingest_snapshot_upserts_same_day_record() -> None:
+    sync_run = SyncRun.objects.create(sync_type="catalog_snapshot", status="running")
+    product = StoreProduct.objects.create(
+        product_id="UP1821-PPSA10990_00-1887411884729257",
+        concept_id="223118",
+        product_name="PRAGMATA",
+        concept_name="PRAGMATA",
+        is_visible=True,
+        missing_count=0,
+    )
+    snapshot_date = date(2026, 5, 16)
+    PriceSnapshot.objects.create(
+        store_product=product,
+        snapshot_date=snapshot_date,
+        normalized_state=PriceState.PAID.value,
+        source_strategy_source="catalog",
+        source_strategy_reason="first",
+        source_strategy_reason_codes_raw=json.dumps(["first"]),
+        currency="TWD",
+        base_amount_cents=100,
+        discounted_amount_cents=100,
+        base_display="NT$100",
+        discounted_display="NT$100",
+    )
+
+    item = _catalog_item(
+        concept_id="223118",
+        product_ids=(product.product_id,),
+    )
+    normalized_price = _normalized_price(state=PriceState.DISCOUNTED)
+    decision = _decision(source="catalog")
+
+    from ps_price_sync.services.ingestion import ingest_catalog_snapshot
+
+    ingest_catalog_snapshot(
+        sync_run=sync_run,
+        item=item,
+        normalized_price=normalized_price,
+        decision=decision,
+        snapshot_date=snapshot_date,
+        source_url="https://store.playstation.com/zh-hant-tw/catalog/223118",
+    )
+
+    assert PriceSnapshot.objects.filter(store_product=product, snapshot_date=snapshot_date).count() == 1
+    snapshot = PriceSnapshot.objects.get(store_product=product, snapshot_date=snapshot_date)
+    assert snapshot.normalized_state == PriceState.DISCOUNTED.value
+    assert snapshot.discounted_amount_cents == 139000
