@@ -15,7 +15,7 @@
 - catalog-first/detail-fallback source strategy，daily snapshot 先信明確 catalog price，只有缺資料或高風險狀態才查 concept detail。
 - deterministic fixtures 與 offline CI，讓測試不用靠 PlayStation Store 當場心情。
 
-下一個里程碑應聚焦查詢與呈現層。不要在這個交接點順手塞 auth、通知或 full detail backfill，這種「順手」通常就是專案管理的香蕉皮。
+下一個里程碑可聚焦 Docker Compose 自架部署，或再往 admin/手動操作與重跑錯誤功能前進。不要在這個交接點順手塞 auth、通知或 full detail backfill，這種「順手」通常就是專案管理的香蕉皮。
 
 ## Canonical setup and verification
 
