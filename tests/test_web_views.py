@@ -107,7 +107,48 @@ def test_product_list_route_renders_empty_state(client) -> None:
 
 
 @pytest.mark.django_db
+def test_product_list_renders_products_and_filter_form(client) -> None:
+    product = _web_product("P-list-1", "List Game")
+    _web_snapshot(product, state="DISCOUNTED")
+
+    response = client.get(reverse("product-list"))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "List Game" in content
+    assert "NT$1,200" in content
+    assert "DISCOUNTED" in content
+    assert 'name="q"' in content
+    assert 'name="sale"' in content
+    assert reverse("product-detail", kwargs={"product_id": "P-list-1"}) in content
+
+
+@pytest.mark.django_db
+def test_product_list_applies_query_and_sale_filter(client) -> None:
+    discounted = _web_product("P-list-2", "Discount Match")
+    paid = _web_product("P-list-3", "Full Price Match")
+    _web_snapshot(discounted, state="DISCOUNTED")
+    _web_snapshot(paid, state="PAID")
+
+    response = client.get(reverse("product-list"), {"q": "Match", "sale": "1"})
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Discount Match" in content
+    assert "Full Price Match" not in content
+    assert 'value="Match"' in content
+    assert 'name="sale" value="1" checked' in content
+
+
+@pytest.mark.django_db
 def test_product_detail_returns_404_for_unknown_product(client) -> None:
     response = client.get(reverse("product-detail", kwargs={"product_id": "missing-product"}))
 
     assert response.status_code == 404
+
+
+def test_twd_cents_template_filter_formats_integer_cents() -> None:
+    from ps_price_sync.templatetags.price_format import twd_cents
+
+    assert twd_cents(120000) == "NT$1,200"
+    assert twd_cents(None) == "-"
