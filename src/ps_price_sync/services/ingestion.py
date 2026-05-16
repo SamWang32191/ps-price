@@ -1,0 +1,123 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+import json
+
+from django.utils import timezone
+
+from ps_price_crawler.models import CatalogItem, CatalogPage
+from ps_price_sync.models import StoreProduct, SyncError, SyncRun
+
+
+@dataclass(frozen=True)
+class CatalogIngestionResult:
+    observed_items: int
+    persisted_products: int
+    skipped_missing_product_id: int
+    observed_product_ids: set[str]
+
+
+def _first_product_id(item: CatalogItem) -> str | None:
+    return item.product_ids[0] if item.product_ids else None
+
+
+def _build_summary(observed_items: int, persisted_products: int, skipped_missing_product_id: int) -> str:
+    return json.dumps(
+        {
+            "observed_items": observed_items,
+            "persisted_products": persisted_products,
+            "skipped_missing_product_id": skipped_missing_product_id,
+        }
+    )
+
+
+def ingest_catalog_page(
+    sync_run: SyncRun,
+    page: CatalogPage,
+    seen_at: datetime,
+) -> CatalogIngestionResult:
+    observed_product_ids: set[str] = set()
+    persisted_products = 0
+    skipped_missing_product_id = 0
+
+    for item in page.items:
+        product_id = _first_product_id(item)
+        if not product_id:
+            SyncError.objects.create(
+                sync_run=sync_run,
+                stage="catalog_ingestion",
+                concept_id=item.concept_id,
+                source_url=page.source_url,
+                error_type="MissingProductId",
+                error_message="Catalog item has no product_id",
+            )
+            skipped_missing_product_id += 1
+            continue
+
+        observed_product_ids.add(product_id)
+
+        product, _ = StoreProduct.objects.get_or_create(
+            product_id=product_id,
+            defaults={
+                "concept_id": item.concept_id,
+                "product_name": item.name,
+                "concept_name": item.name,
+                "image_url": item.image_url,
+                "is_visible": True,
+                "missing_count": 0,
+                "last_seen_at": seen_at,
+            },
+        )
+        product.concept_id = item.concept_id
+        product.product_name = item.name
+        product.concept_name = item.name
+        product.image_url = item.image_url
+        product.is_visible = True
+        product.missing_count = 0
+        product.last_seen_at = seen_at
+        product.save(
+            update_fields=(
+                "concept_id",
+                "product_name",
+                "concept_name",
+                "image_url",
+                "is_visible",
+                "missing_count",
+                "last_seen_at",
+                "updated_at",
+            )
+        )
+        persisted_products += 1
+
+    sync_run.error_count += skipped_missing_product_id
+    sync_run.summary = _build_summary(
+        observed_items=len(page.items),
+        persisted_products=persisted_products,
+        skipped_missing_product_id=skipped_missing_product_id,
+    )
+    sync_run.updated_at = timezone.now()
+    sync_run.save(update_fields=["error_count", "summary", "updated_at"])
+
+    return CatalogIngestionResult(
+        observed_items=len(page.items),
+        persisted_products=persisted_products,
+        skipped_missing_product_id=skipped_missing_product_id,
+        observed_product_ids=observed_product_ids,
+    )
+
+
+def finalize_catalog_visibility(sync_run: SyncRun, observed_product_ids: set[str]) -> int:
+    unseen = StoreProduct.objects.filter(is_visible=True).exclude(product_id__in=observed_product_ids)
+    unseen_count = unseen.count()
+
+    for product in unseen:
+        product.is_visible = False
+        missing_count = product.missing_count or 0
+        product.missing_count = missing_count + 1
+        product.save(update_fields=("is_visible", "missing_count", "updated_at"))
+
+    sync_run.updated_at = timezone.now()
+    sync_run.save(update_fields=["updated_at"])
+
+    return unseen_count
