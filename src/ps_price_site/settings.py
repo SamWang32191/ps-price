@@ -1,19 +1,6 @@
 from pathlib import Path
-from django.urls import base
-from django.conf import LazySettings
-from django.conf import settings as _django_settings
 
 BASE_DIR = Path(__file__).resolve().parents[2]
-base._prefixes.value = ""
-
-_django_settings.STATIC_URL = "static/"
-
-
-def _no_script_prefix(_: LazySettings, value: str) -> str:
-    return value
-
-
-LazySettings._add_script_prefix = _no_script_prefix
 
 SECRET_KEY = "dev-only-ps-price"
 
@@ -45,7 +32,6 @@ TEMPLATES = [
     }
 ]
 
-FORCE_SCRIPT_NAME = ""
 STATIC_URL = "static/"
 
 DATABASES = {

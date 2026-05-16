@@ -1,17 +1,18 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="zh-Hant">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PS Price</title>
-    <link rel="stylesheet" href="/static/ps_price_sync/app.css">
+    <link rel="stylesheet" href="{% static 'ps_price_sync/app.css' %}">
   </head>
   <body>
     <header class="site-header">
       <h1>PS Price</h1>
       <nav>
-        <a href="/">總覽</a>
-        <a href="/products/">商品查詢</a>
+        <a href="{% url 'dashboard' %}">總覽</a>
+        <a href="{% url 'product-list' %}">商品查詢</a>
       </nav>
     </header>
     <main>{% block content %}{% endblock %}</main>
