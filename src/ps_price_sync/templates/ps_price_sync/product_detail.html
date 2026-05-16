@@ -1,0 +1,100 @@
+{% extends "ps_price_sync/base.html" %}
+{% load price_format %}
+
+{% block content %}
+  <section class="product-detail">
+    <h2>{{ detail.product.product_name }}</h2>
+    <p>商品代號：{{ detail.product.product_id }}</p>
+
+    <div class="metric-grid">
+      <article class="metric">
+        <div class="metric-label">目前狀態</div>
+        <div class="metric-value">{{ detail.price_summary.current_snapshot.normalized_state|default:"-" }}</div>
+      </article>
+      <article class="metric">
+        <div class="metric-label">目前價格</div>
+        <div class="metric-value">{{ detail.price_summary.current_snapshot|snapshot_price_display }}</div>
+      </article>
+      <article class="metric">
+        <div class="metric-label">一般歷史低價</div>
+        <div class="metric-value">{{ detail.price_summary.general_low_amount_cents|twd_cents }}</div>
+        <div class="subtext">{{ detail.price_summary.general_low_date|default:"-" }}</div>
+      </article>
+      <article class="metric">
+        <div class="metric-label">PS Plus 歷史低價</div>
+        <div class="metric-value">{{ detail.price_summary.plus_low_amount_cents|twd_cents }}</div>
+        <div class="subtext">{{ detail.price_summary.plus_low_date|default:"-" }}</div>
+      </article>
+    </div>
+
+    <div class="panel">
+      <h3>商品資訊</h3>
+      <dl class="definition-grid">
+        <div><dt>商品名稱</dt><dd>{{ detail.product.product_name }}</dd></div>
+        <div><dt>遊戲代號</dt><dd>{{ detail.product.product_id }}</dd></div>
+        <div><dt>概念代號</dt><dd>{{ detail.product.concept_id|default:"-" }}</dd></div>
+        <div><dt>分類</dt><dd>{{ detail.product.top_category|default:"-" }}</dd></div>
+        <div><dt>出版商</dt><dd>{{ detail.product.publisher_name|default:"-" }}</dd></div>
+        <div><dt>上市日期</dt><dd>{{ detail.product.release_date_raw|default:"-" }}</dd></div>
+        <div><dt>概念名稱</dt><dd>{{ detail.product.concept_name|default:"-" }}</dd></div>
+      </dl>
+      {% if detail.product.source_url %}
+        <p class="subtext">
+          來源：
+          <a href="{{ detail.product.source_url }}" target="_blank" rel="noopener noreferrer">{{ detail.product.source_url }}</a>
+        </p>
+      {% endif %}
+    </div>
+
+    <div class="panel">
+      <h3>價格趨勢</h3>
+      {% if detail.chart_points %}
+        <div class="chart-frame">
+          <svg class="price-chart" viewBox="0 0 100 100" role="img" aria-label="價格歷史折線圖">
+            <polyline
+              points="{% for point in detail.chart_points %}{{ point.x }},{{ point.y }}{% if not forloop.last %} {% endif %}{% endfor %}"
+              fill="none"
+              stroke="#1f3f8d"
+              stroke-width="1.2">
+            </polyline>
+            {% for point in detail.chart_points %}
+              <circle cx="{{ point.x }}" cy="{{ point.y }}" r="0.9"></circle>
+            {% endfor %}
+          </svg>
+        </div>
+      {% else %}
+        <p class="subtext">目前無法產生圖表資料。</p>
+      {% endif %}
+    </div>
+
+    <div class="panel">
+      <h3>每日價格紀錄</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>狀態</th>
+              <th>原價</th>
+              <th>顯示價格</th>
+              <th>折扣備註</th>
+              <th>資料來源</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for snapshot in detail.snapshots %}
+              <tr>
+                <td>{{ snapshot.snapshot_date }}</td>
+                <td>{{ snapshot.normalized_state }}</td>
+                <td>{{ snapshot.base_amount_cents|twd_cents }}</td>
+                <td>{{ snapshot|snapshot_price_display }}</td>
+                <td>{{ snapshot.discount_text|default:"-" }}</td>
+                <td>{{ snapshot.source_strategy_source|default:"-" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+{% endblock %}

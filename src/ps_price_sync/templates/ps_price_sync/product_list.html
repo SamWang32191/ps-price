@@ -1,0 +1,97 @@
+{% extends "ps_price_sync/base.html" %}
+{% load price_format %}
+
+{% block content %}
+  <section class="product-list">
+    <h2>商品查詢</h2>
+
+    <form method="get" class="filters" action="{% url 'product-list' %}">
+      <div class="form-row">
+        <label for="q">關鍵字</label>
+        <input id="q" name="q" type="text" value="{{ result.filters.query }}" placeholder="請輸入名稱 / 代號 / 標題">
+      </div>
+      <div class="form-row">
+        <label for="state">狀態</label>
+        <select id="state" name="state">
+          <option value="" {% if not result.filters.state %}selected{% endif %}>全部</option>
+          {% for state in result.state_options %}
+            <option value="{{ state }}" {% if state == result.filters.state %}selected{% endif %}>{{ state }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="visibility">可見性</label>
+        <select id="visibility" name="visibility">
+          <option value="" {% if not result.filters.visibility %}selected{% endif %}>全部</option>
+          <option value="visible" {% if result.filters.visibility == "visible" %}selected{% endif %}>可見</option>
+          <option value="hidden" {% if result.filters.visibility == "hidden" %}selected{% endif %}>已隱藏</option>
+          <option value="unknown" {% if result.filters.visibility == "unknown" %}selected{% endif %}>未知</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="top_category">分類</label>
+        <select id="top_category" name="top_category">
+          <option value="" {% if not result.filters.top_category %}selected{% endif %}>全部</option>
+          {% for category in result.category_options %}
+            <option value="{{ category }}" {% if category == result.filters.top_category %}selected{% endif %}>{{ category }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="checkbox-label">
+          <input type="checkbox" name="sale" value="1" {% if result.filters.sale_only %}checked{% endif %}>
+          僅特價
+        </label>
+      </div>
+      <button type="submit">套用條件</button>
+    </form>
+
+    {% if result.products %}
+      <div class="table-header">
+        <span>共 {{ result.total_count }} 筆</span>
+        <span>第 {{ result.page }} / {{ result.total_pages }} 頁</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>狀態</th>
+              <th>目前價格</th>
+              <th>一般歷史低價</th>
+              <th>可見性</th>
+              <th>分類</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in result.products %}
+              {% with product=row.product snapshot=row.price_summary.current_snapshot %}
+                <tr>
+                  <td>
+                    <a href="{% url 'product-detail' product_id=product.product_id %}">{{ product.product_name }}</a>
+                    <div class="subtext">{{ product.product_id }}</div>
+                  </td>
+                  <td>{{ snapshot.normalized_state|default:"-" }}</td>
+                  <td>{{ snapshot|snapshot_price_display }}</td>
+                  <td>{{ row.price_summary.general_low_amount_cents|twd_cents }}</td>
+                  <td>
+                    {% if product.is_visible is True %}可見{% elif product.is_visible is False %}隱藏{% else %}未知{% endif %}
+                  </td>
+                  <td>{{ product.top_category|default:"-" }}</td>
+                </tr>
+              {% endwith %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if result.total_pages > 1 %}
+        <div class="pagination">
+          <span>頁次 {{ result.page }} / {{ result.total_pages }}</span>
+        </div>
+      {% endif %}
+    {% else %}
+      <p class="empty-state">目前沒有符合條件的商品</p>
+    {% endif %}
+  </section>
+{% endblock %}

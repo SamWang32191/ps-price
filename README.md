@@ -4,7 +4,7 @@
 
 ## 目前里程碑
 
-目前 repo 已完成 crawler contract stabilization、Django data foundation 與第一版 daily sync scheduler。這些階段把 PlayStation Store 台灣 SSR 頁面的 spike 收斂成 Django ingestion 可以讀的 crawler adapter contract，並提供可長駐執行的每日同步入口；UI 與 Docker Compose 尚未開始。
+目前 repo 已完成 crawler contract stabilization、Django data foundation 與第一版 daily sync scheduler，以及第一版 read-only Dashboard / 商品查詢介面；Docker Compose 尚未開始。這些階段把 PlayStation Store 台灣 SSR 頁面的 spike 收斂成 Django ingestion 可以讀的 crawler adapter contract，並提供可長駐執行的每日同步入口。
 
 已穩定的 crawler contract 包含：
 
@@ -15,7 +15,7 @@
 - catalog-first/detail-fallback source strategy，daily snapshot 先信明確 catalog price，只有缺資料或高風險狀態才查 concept detail。
 - deterministic fixtures 與 offline CI，讓測試不用靠 PlayStation Store 當場心情。
 
-下一個里程碑應聚焦查詢與呈現層。不要在這個交接點順手塞 auth、通知或 full detail backfill，這種「順手」通常就是專案管理的香蕉皮。
+下一個里程碑可聚焦 Docker Compose 自架部署，或再往 admin/手動操作與重跑錯誤功能前進。不要在這個交接點順手塞 auth、通知或 full detail backfill，這種「順手」通常就是專案管理的香蕉皮。
 
 ## Canonical setup and verification
 
@@ -44,6 +44,23 @@ uv run python manage.py sync_ps_store --mode catalog-only --pages 5 --snapshot-d
 uv run python manage.py sync_ps_store --mode snapshot-only --pages 5 --snapshot-date 2026-05-16
 uv run python manage.py sync_ps_store --mode catalog-and-snapshot --pages 5 --snapshot-date 2026-05-16
 ```
+
+## Web dashboard usage
+
+The first read-only web UI provides:
+
+- `/` Dashboard for latest sync status, catalog coverage, product counts, current discounts, and recent unresolved sync errors.
+- `/products/` Product search and filters.
+- `/products/<product_id>/` Product detail with current price, historical lows, a simple trend chart, and daily snapshots.
+
+Run locally:
+
+```bash
+uv run python manage.py migrate
+uv run python manage.py runserver 127.0.0.1:8000
+```
+
+This UI is read-only. It does not trigger syncs, retry errors, or modify products.
 
 ## Daily scheduler usage
 

@@ -13,14 +13,19 @@ def test_django_settings_module_is_configured() -> None:
     settings_path = Path("src/ps_price_site/settings.py")
     assert settings_path.exists()
     assert 'TIME_ZONE = "Asia/Taipei"' in settings_path.read_text()
+    assert 'STATIC_URL = "static/"' in settings_path.read_text()
 
     assert settings.configured
     assert settings.TIME_ZONE == "Asia/Taipei"
     assert settings.USE_TZ
     assert settings.INSTALLED_APPS == [
         "django.contrib.contenttypes",
+        "django.contrib.staticfiles",
         "ps_price_sync",
     ]
+    assert settings.STATIC_URL == "/static/"
+    assert settings.TEMPLATES[0]["BACKEND"] == "django.template.backends.django.DjangoTemplates"
+    assert settings.TEMPLATES[0]["APP_DIRS"] is True
     assert apps.get_app_config("ps_price_sync").name == "ps_price_sync"
     assert import_module(settings.ROOT_URLCONF).__name__ == "ps_price_site.urls"
 

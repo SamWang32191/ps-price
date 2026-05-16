@@ -1,0 +1,107 @@
+{% extends "ps_price_sync/base.html" %}
+
+{% block content %}
+  <h2 class="page-title">同步總覽</h2>
+  <section class="panel">
+    <h3>關鍵指標</h3>
+    <div class="metric-grid">
+      <article class="metric">
+        <div class="metric-label">商品總數</div>
+        <div class="metric-value">{{ summary.total_products }}</div>
+      </article>
+      <article class="metric">
+        <div class="metric-label">可見商品</div>
+        <div class="metric-value">{{ summary.visible_products }}</div>
+      </article>
+      <article class="metric">
+        <div class="metric-label">目前特價</div>
+        <div class="metric-value">{{ summary.current_discounted_products }}</div>
+      </article>
+      <article class="metric">
+        <div class="metric-label">最近快照日期</div>
+        <div class="metric-value">
+          {% if summary.latest_snapshot_date %}
+            {{ summary.latest_snapshot_date|date:"Y-m-d" }}
+          {% else %}
+            尚未建立快照
+          {% endif %}
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h3>最近同步紀錄</h3>
+    {% if summary.latest_sync_run %}
+      {% with sync_run=summary.latest_sync_run sync_summary=summary.latest_sync_summary %}
+        <div class="definition-grid">
+          <div>同步類型</div>
+          <div>{{ sync_run.sync_type }}</div>
+          <div>狀態</div>
+          <div>{{ sync_run.status }}</div>
+          <div>成功</div>
+          <div>{{ sync_run.success_count }}</div>
+          <div>失敗</div>
+          <div>{{ sync_run.error_count }}</div>
+          <div>抓取頁數</div>
+          <div>
+            {% if "pages_fetched" in sync_summary %}
+              {{ sync_summary.pages_fetched }}
+            {% else %}
+              -
+            {% endif %}
+          </div>
+          <div>Catalog 總數</div>
+          <div>
+            {% if "catalog_total_count" in sync_summary %}
+              {{ sync_summary.catalog_total_count }}
+            {% else %}
+              -
+            {% endif %}
+          </div>
+          <div>已到達最後頁</div>
+          <div>
+            {% if "last_page_reached" in sync_summary %}
+              {{ sync_summary.last_page_reached|yesno:"是,否" }}
+            {% else %}
+              -
+            {% endif %}
+          </div>
+        </div>
+      {% endwith %}
+    {% else %}
+      <p>尚無同步紀錄</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h3>未解決錯誤</h3>
+    {% if summary.recent_errors %}
+      <p>共 {{ summary.unresolved_error_count }} 筆待處理錯誤</p>
+      <table>
+        <thead>
+          <tr>
+            <th>階段</th>
+            <th>錯誤類型</th>
+            <th>訊息</th>
+            <th>商品代碼</th>
+            <th>同步序號</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for err in summary.recent_errors %}
+            <tr>
+              <td>{{ err.stage }}</td>
+              <td>{{ err.error_type }}</td>
+              <td>{{ err.error_message }}</td>
+              <td>{{ err.product_id|default:"-" }}</td>
+              <td>{{ err.sync_run_id }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>目前沒有未解決錯誤</p>
+    {% endif %}
+  </section>
+{% endblock %}
