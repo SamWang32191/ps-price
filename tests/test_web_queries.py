@@ -1,6 +1,42 @@
 from __future__ import annotations
 
+from datetime import date
+
 from ps_price_web.formatting import format_money_twd, format_raw_json_list
+import pytest
+
+from ps_price_sync.models import PriceSnapshot, StoreProduct
+from ps_price_web.queries import get_latest_deals
+
+
+def create_product(
+    product_id: str, name: str, *, concept_name: str = "", is_visible: bool | None = True
+) -> StoreProduct:
+    return StoreProduct.objects.create(
+        product_id=product_id,
+        product_name=name,
+        concept_name=concept_name,
+        is_visible=is_visible,
+    )
+
+
+def create_snapshot(
+    product: StoreProduct,
+    snapshot_date: date,
+    state: str,
+    *,
+    base: int | None = None,
+    discounted: int | None = None,
+) -> PriceSnapshot:
+    return PriceSnapshot.objects.create(
+        store_product=product,
+        snapshot_date=snapshot_date,
+        normalized_state=state,
+        base_amount_cents=base,
+        discounted_amount_cents=discounted,
+        source_strategy_source="catalog",
+        source_strategy_reason="catalog_price",
+    )
 
 
 def test_format_money_twd_formats_integer_cents() -> None:
@@ -21,3 +57,51 @@ def test_format_raw_json_list_formats_json_arrays() -> None:
 def test_format_raw_json_list_falls_back_to_raw_text() -> None:
     assert format_raw_json_list("not-json") == "not-json"
     assert format_raw_json_list("") == "-"
+
+
+@pytest.mark.django_db
+def test_get_latest_deals_only_returns_discounted_latest_snapshots() -> None:
+    discounted = create_product("P-DISCOUNT", "Discounted")
+    paid = create_product("P-PAID", "Paid")
+    plus = create_product("P-PLUS", "Plus")
+    hidden = create_product("P-HIDDEN", "Hidden", is_visible=False)
+
+    create_snapshot(discounted, date(2026, 5, 15), "PAID", base=100000)
+    create_snapshot(discounted, date(2026, 5, 16), "DISCOUNTED", base=100000, discounted=50000)
+    create_snapshot(paid, date(2026, 5, 16), "PAID", base=90000)
+    create_snapshot(plus, date(2026, 5, 16), "PS_PLUS", base=90000, discounted=60000)
+    create_snapshot(hidden, date(2026, 5, 16), "DISCOUNTED", base=90000, discounted=30000)
+
+    deals = get_latest_deals()
+
+    assert [deal.product.product_id for deal in deals] == ["P-DISCOUNT"]
+    assert deals[0].snapshot.normalized_state == "DISCOUNTED"
+    assert deals[0].discount_percent == 50
+
+
+@pytest.mark.django_db
+def test_get_latest_deals_sorts_by_discount_percent_descending() -> None:
+    lower = create_product("P-LOWER", "Lower")
+    higher = create_product("P-HIGHER", "Higher")
+
+    create_snapshot(lower, date(2026, 5, 16), "DISCOUNTED", base=100000, discounted=75000)
+    create_snapshot(higher, date(2026, 5, 16), "DISCOUNTED", base=100000, discounted=40000)
+
+    deals = get_latest_deals()
+
+    assert [deal.product.product_id for deal in deals] == ["P-HIGHER", "P-LOWER"]
+    assert [deal.discount_percent for deal in deals] == [60, 25]
+
+
+@pytest.mark.django_db
+def test_get_latest_deals_searches_product_and_concept_name() -> None:
+    product_match = create_product("P-PRODUCT", "Final Fantasy")
+    concept_match = create_product("P-CONCEPT", "Some Edition", concept_name="Monster Hunter")
+    miss = create_product("P-MISS", "Gran Turismo")
+
+    create_snapshot(product_match, date(2026, 5, 16), "DISCOUNTED", base=100000, discounted=60000)
+    create_snapshot(concept_match, date(2026, 5, 16), "DISCOUNTED", base=100000, discounted=50000)
+    create_snapshot(miss, date(2026, 5, 16), "DISCOUNTED", base=100000, discounted=40000)
+
+    assert [deal.product.product_id for deal in get_latest_deals(query="fantasy")] == ["P-PRODUCT"]
+    assert [deal.product.product_id for deal in get_latest_deals(query="hunter")] == ["P-CONCEPT"]
