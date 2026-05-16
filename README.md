@@ -4,7 +4,7 @@
 
 ## 目前里程碑
 
-目前 repo 已完成 crawler contract stabilization。這個階段把 PlayStation Store 台灣 SSR 頁面的 spike 收斂成後續 Django ingestion 可以讀的 crawler adapter contract，但還沒有開始 Django、SQLite、scheduler、UI 或 Docker Compose。
+目前 repo 已完成 crawler contract stabilization、Django data foundation 與第一版 daily sync scheduler。這些階段把 PlayStation Store 台灣 SSR 頁面的 spike 收斂成 Django ingestion 可以讀的 crawler adapter contract，並提供可長駐執行的每日同步入口；UI 與 Docker Compose 尚未開始。
 
 已穩定的 crawler contract 包含：
 
@@ -15,7 +15,7 @@
 - catalog-first/detail-fallback source strategy，daily snapshot 先信明確 catalog price，只有缺資料或高風險狀態才查 concept detail。
 - deterministic fixtures 與 offline CI，讓測試不用靠 PlayStation Store 當場心情。
 
-下一個里程碑是 Django data foundation，而且只能在 crawler contract stabilization 的離線驗證通過後開始。下一步應只接資料基礎：Django models、SQLite persistence、sync run/error records 與 ingestion boundary。不要在這個交接點順手塞 scheduler、UI、auth、通知或 full detail backfill，這種「順手」通常就是專案管理的香蕉皮。
+下一個里程碑應聚焦查詢與呈現層。不要在這個交接點順手塞 auth、通知或 full detail backfill，這種「順手」通常就是專案管理的香蕉皮。
 
 ## Canonical setup and verification
 
@@ -44,6 +44,26 @@ uv run python manage.py sync_ps_store --mode catalog-only --pages 5 --snapshot-d
 uv run python manage.py sync_ps_store --mode snapshot-only --pages 5 --snapshot-date 2026-05-16
 uv run python manage.py sync_ps_store --mode catalog-and-snapshot --pages 5 --snapshot-date 2026-05-16
 ```
+
+## Daily scheduler usage
+
+The scheduler runs the existing Django sync command once per day. It defaults to a full catalog traversal with a safety guard:
+
+```bash
+PS_PRICE_SYNC_AT=03:30 \
+PS_PRICE_SYNC_TIMEZONE=Asia/Taipei \
+PS_PRICE_SYNC_MODE=catalog-and-snapshot \
+PS_PRICE_SYNC_MAX_PAGES=500 \
+uv run python manage.py run_daily_sync_scheduler
+```
+
+The scheduler calls:
+
+```bash
+uv run python manage.py sync_ps_store --mode catalog-and-snapshot --until-last --max-pages 500 --snapshot-date <yyyy-mm-dd>
+```
+
+`PS_PRICE_SYNC_MAX_PAGES` is a guardrail, not the target coverage. The sync stops when the parsed catalog page reports `is_last`.
 
 ## Manual crawler commands
 
