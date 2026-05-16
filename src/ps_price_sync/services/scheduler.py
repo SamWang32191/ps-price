@@ -88,7 +88,7 @@ def next_run_at(now: datetime, settings: SchedulerSettings) -> datetime:
         settings.run_at.minute,
         tzinfo=local_tz,
     )
-    if scheduled <= current_local:
+    if scheduled < current_local:
         scheduled += timedelta(days=1)
     return scheduled
 

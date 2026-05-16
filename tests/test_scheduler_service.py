@@ -72,6 +72,18 @@ def test_next_run_at_uses_today_when_time_has_not_passed() -> None:
     assert scheduler.next_run_at(now, settings) == datetime(2026, 5, 16, 3, 30, tzinfo=ZoneInfo("Asia/Taipei"))
 
 
+def test_next_run_at_uses_now_when_time_matches_schedule() -> None:
+    settings = scheduler.SchedulerSettings(
+        mode="catalog-and-snapshot",
+        max_pages=500,
+        timezone_name="Asia/Taipei",
+        run_at=time(3, 30),
+    )
+    now = datetime(2026, 5, 16, 3, 30, tzinfo=ZoneInfo("Asia/Taipei"))
+
+    assert scheduler.next_run_at(now, settings) == now
+
+
 def test_next_run_at_uses_tomorrow_when_time_has_passed() -> None:
     settings = scheduler.SchedulerSettings(
         mode="catalog-and-snapshot",
