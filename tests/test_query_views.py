@@ -182,3 +182,42 @@ def test_normalize_filters_clamps_invalid_pagination_values() -> None:
         }
     )
     assert filters == ProductListFilters(page=2, page_size=100)
+
+
+@pytest.mark.django_db
+def test_list_products_state_options_only_include_current_states() -> None:
+    _product("P-1", "Game 1")
+    _product("P-2", "Game 2")
+    _product("P-3", "Game 3")
+
+    from ps_price_sync.services.query_views import ProductListFilters, list_products
+
+    p1 = StoreProduct.objects.get(product_id="P-1")
+    p2 = StoreProduct.objects.get(product_id="P-2")
+    p3 = StoreProduct.objects.get(product_id="P-3")
+
+    _snapshot(p1, snapshot_date=date(2026, 5, 14), state="PAID", base=200000, discounted=200000)
+    _snapshot(p1, snapshot_date=date(2026, 5, 15), state="DISCOUNTED", base=200000, discounted=150000)
+    _snapshot(p2, snapshot_date=date(2026, 5, 16), state="PAID", base=200000, discounted=130000)
+    _snapshot(p3, snapshot_date=date(2026, 5, 14), state="FREE", base=300000, discounted=300000)
+    _snapshot(p3, snapshot_date=date(2026, 5, 16), state="PAID", base=220000, discounted=220000)
+
+    result = list_products(ProductListFilters())
+
+    assert "FREE" not in result.state_options
+    assert set(result.state_options) == {"DISCOUNTED", "PAID"}
+
+
+@pytest.mark.django_db
+def test_list_products_does_not_n_plus_one(django_assert_num_queries) -> None:
+    for index in range(1, 4):
+        product = _product(f"P-{index}", f"Game {index}")
+        _snapshot(product, snapshot_date=date(2026, 5, 16), state="PAID", base=200000, discounted=150000)
+        _snapshot(product, snapshot_date=date(2026, 5, 17), state="DISCOUNTED", base=180000, discounted=120000)
+
+    from ps_price_sync.services.query_views import ProductListFilters, list_products
+
+    with django_assert_num_queries(4):
+        result = list_products(ProductListFilters(page=1, page_size=50))
+
+    assert result.total_count == 3

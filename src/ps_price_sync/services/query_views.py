@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import date
 from math import ceil
 
-from django.db.models import Max, Q
+from django.db.models import Max, Prefetch, Q
 
 from ps_price_sync.models import PriceSnapshot, StoreProduct, SyncError, SyncRun
 
@@ -98,9 +98,19 @@ def _general_amount(snapshot: PriceSnapshot) -> int | None:
     return snapshot.base_amount_cents
 
 
-def calculate_price_summary(product: StoreProduct) -> PriceSummary:
-    snapshots = list(PriceSnapshot.objects.filter(store_product=product).order_by("snapshot_date", "id"))
-    current_snapshot = snapshots[-1] if snapshots else None
+def _calculate_price_summary_from_snapshots(snapshots: list[PriceSnapshot]) -> PriceSummary:
+    if not snapshots:
+        return PriceSummary(
+            current_snapshot=None,
+            general_low_amount_cents=None,
+            general_low_date=None,
+            plus_low_amount_cents=None,
+            plus_low_date=None,
+            is_current_discounted=False,
+        )
+
+    ordered = sorted(snapshots, key=lambda snapshot: (snapshot.snapshot_date, snapshot.updated_at, snapshot.id))
+    current_snapshot = ordered[-1]
     general_low_amount: int | None = None
     general_low_date: date | None = None
     plus_low_amount: int | None = None
@@ -125,6 +135,11 @@ def calculate_price_summary(product: StoreProduct) -> PriceSummary:
         plus_low_date=plus_low_date,
         is_current_discounted=current_snapshot is not None and current_snapshot.normalized_state == "DISCOUNTED",
     )
+
+
+def calculate_price_summary(product: StoreProduct) -> PriceSummary:
+    snapshots = list(PriceSnapshot.objects.filter(store_product=product).order_by("snapshot_date", "updated_at", "id"))
+    return _calculate_price_summary_from_snapshots(snapshots)
 
 
 def _parse_positive_int(value: int, fallback: int) -> int:
@@ -161,7 +176,9 @@ def normalize_filters(params) -> ProductListFilters:
 
 def list_products(filters: ProductListFilters) -> ProductListResult:
     latest_date = PriceSnapshot.objects.aggregate(value=Max("snapshot_date"))["value"]
-    queryset = StoreProduct.objects.all().order_by("product_name", "product_id")
+    queryset = StoreProduct.objects.all().order_by("product_name", "product_id").prefetch_related(
+        Prefetch("snapshots", queryset=PriceSnapshot.objects.order_by("snapshot_date", "updated_at", "id"))
+    )
 
     if filters.query:
         queryset = queryset.filter(
@@ -179,7 +196,23 @@ def list_products(filters: ProductListFilters) -> ProductListResult:
         queryset = queryset.filter(top_category=filters.top_category)
 
     products = list(queryset)
-    rows = [ProductListRow(product=product, price_summary=calculate_price_summary(product)) for product in products]
+    base_rows = [
+        ProductListRow(
+            product=product,
+            price_summary=_calculate_price_summary_from_snapshots(list(product.snapshots.all())),
+        )
+        for product in products
+    ]
+    rows = list(base_rows)
+    state_options = tuple(
+        sorted(
+            {
+                row.price_summary.current_snapshot.normalized_state
+                for row in base_rows
+                if row.price_summary.current_snapshot is not None
+            }
+        )
+    )
 
     if filters.state:
         rows = [
@@ -221,9 +254,7 @@ def list_products(filters: ProductListFilters) -> ProductListResult:
             page=page,
             page_size=filters.page_size,
         ),
-        state_options=tuple(
-            PriceSnapshot.objects.order_by("normalized_state").values_list("normalized_state", flat=True).distinct()
-        ),
+        state_options=state_options,
         category_options=tuple(
             StoreProduct.objects.exclude(top_category__isnull=True)
             .exclude(top_category="")
