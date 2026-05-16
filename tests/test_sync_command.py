@@ -2,6 +2,7 @@ from datetime import date
 
 import pytest
 from django.core.management import call_command
+from django.core.management.base import CommandError
 
 from ps_price_sync.models import SyncRun
 from ps_price_sync.services import sync_runner
@@ -57,3 +58,18 @@ def test_partial_failures_mark_run_partial(monkeypatch):
     assert latest.status == "partial"
     assert latest.success_count == 2
     assert latest.error_count == 1
+
+
+def test_pages_must_be_positive(monkeypatch):
+    del monkeypatch
+
+    with pytest.raises(CommandError, match="--pages must be >= 1"):
+        call_command(
+            "sync_ps_store",
+            "--mode",
+            "snapshot-only",
+            "--pages",
+            "0",
+            "--snapshot-date",
+            "2026-05-16",
+        )

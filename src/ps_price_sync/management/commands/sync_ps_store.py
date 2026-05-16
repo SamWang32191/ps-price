@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from ps_price_sync.models import SyncRun
 from ps_price_sync.services import sync_runner
@@ -29,6 +29,9 @@ class Command(BaseCommand):
         pages: int = options["pages"]
         snapshot_date: date = options["snapshot_date"]
 
+        if pages < 1:
+            raise CommandError("--pages must be >= 1")
+
         sync_run = SyncRun.objects.create(
             sync_type=mode.replace("-", "_"),
             status="running",
@@ -38,13 +41,20 @@ class Command(BaseCommand):
 
         try:
             if mode in {"catalog-only", "catalog-and-snapshot"}:
-                sync_runner.run_catalog_sync(
-                    sync_run=sync_run,
-                    page_limit=pages,
-                    snapshot_date=snapshot_date,
-                )
+                if mode == "catalog-and-snapshot":
+                    sync_runner.run_catalog_and_snapshot_sync(
+                        sync_run=sync_run,
+                        page_limit=pages,
+                        snapshot_date=snapshot_date,
+                    )
+                else:
+                    sync_runner.run_catalog_sync(
+                        sync_run=sync_run,
+                        page_limit=pages,
+                        snapshot_date=snapshot_date,
+                    )
 
-            if mode in {"snapshot-only", "catalog-and-snapshot"}:
+            elif mode == "snapshot-only":
                 sync_runner.run_snapshot_sync(
                     sync_run=sync_run,
                     page_limit=pages,
