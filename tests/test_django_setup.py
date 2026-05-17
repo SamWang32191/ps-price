@@ -33,8 +33,10 @@ def test_django_settings_module_is_configured() -> None:
 def test_web_routes_are_registered() -> None:
     assert reverse("ps_price_web:deals") == "/deals/"
     assert reverse("ps_price_web:product_detail", kwargs={"product_id": "P-100"}) == "/products/P-100/"
+    assert reverse("ps_price_web:watchlist") == "/watchlist/"
     assert resolve("/deals/").view_name == "ps_price_web:deals"
     assert resolve("/products/P-100/").view_name == "ps_price_web:product_detail"
+    assert resolve("/watchlist/").view_name == "ps_price_web:watchlist"
 
 
 def test_readme_mentions_django_sync_commands() -> None:

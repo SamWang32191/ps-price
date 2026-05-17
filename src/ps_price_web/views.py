@@ -4,7 +4,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 
 from ps_price_sync.models import StoreProduct
-from ps_price_web.queries import get_latest_deals, get_product_detail
+from ps_price_web.queries import get_latest_deals, get_product_detail, get_watchlist_rows
 
 
 def deals_view(request: HttpRequest) -> HttpResponse:
@@ -14,6 +14,14 @@ def deals_view(request: HttpRequest) -> HttpResponse:
         request,
         "ps_price_web/deals.html",
         {"deals": deals, "query": query},
+    )
+
+
+def watchlist_view(request: HttpRequest) -> HttpResponse:
+    return render(
+        request,
+        "ps_price_web/watchlist.html",
+        {"rows": get_watchlist_rows()},
     )
 
 

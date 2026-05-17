@@ -7,6 +7,7 @@ import pytest
 from django.urls import reverse
 
 from ps_price_sync.models import PriceSnapshot, StoreProduct, SyncError, SyncRun
+from ps_price_web.models import WatchedProduct
 
 
 def _web_product(product_id: str = "P-web-1", name: str = "Web Game") -> StoreProduct:
@@ -373,3 +374,32 @@ def test_deals_page_empty_state(client) -> None:
 
     assert response.status_code == 200
     assert "目前沒有一般折扣商品" in content
+
+
+@pytest.mark.django_db
+def test_watchlist_page_renders_empty_state(client) -> None:
+    response = client.get(reverse("ps_price_web:watchlist"))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Watchlist" in content
+    assert "目前沒有 Watched Product" in content
+
+
+@pytest.mark.django_db
+def test_watchlist_page_renders_rows_and_keeps_hidden_products(client) -> None:
+    product = _web_product("P-WATCHLIST", "Watchlist Product")
+    product.is_visible = False
+    product.save(update_fields=["is_visible"])
+    _web_snapshot(product, state="DISCOUNTED", base_amount_cents=100000, discounted_amount_cents=50000)
+    WatchedProduct.objects.create(store_product=product, target_price_cents=59000)
+
+    response = client.get(reverse("ps_price_web:watchlist"))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Watchlist Product" in content
+    assert "達標" in content
+    assert "NT$500" in content
+    assert "NT$590" in content
+    assert reverse("ps_price_web:product_detail", kwargs={"product_id": "P-WATCHLIST"}) in content
