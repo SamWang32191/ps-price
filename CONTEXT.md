@@ -20,6 +20,14 @@ _Avoid_: normalized publisher, publisher master
 某個 **Product** 在某個 `snapshot_date` 的單日價格觀測結果。
 _Avoid_: 價格事件, 價格期間, effective price window
 
+**Watched Product**:
+使用者追蹤的一個 **Product**，用來設定 **General Purchase Price** 的目標價並判定是否達標。
+_Avoid_: watchlist item, tracked concept, tracked game, 商品追蹤
+
+**General Purchase Price**:
+某個 **Product** 最新 **PriceSnapshot** 中可直接一般購買的目前價格；`DISCOUNTED` 使用折扣價，`PAID` 使用原價，且排除 `PS_PLUS`、`FREE` 與不可購買或未知狀態。
+_Avoid_: general price, current price, lowest price, PS Plus price
+
 **SyncRun**:
 一次手動或排程觸發的同步批次。
 _Avoid_: 單筆同步, item sync, retry record
@@ -62,6 +70,9 @@ _Avoid_: source page date, write timestamp, event time
 - 一個 **Product** 至多屬於一個 **Concept**
 - 一個 **Product** 可以對應零個或一個 **Publisher** 字串值
 - 一個 **Product** 可以擁有多個 **PriceSnapshot**
+- 一個 **Product** 可以成為零個或一個 **Watched Product**
+- 一個 **Watched Product** 只追蹤一個 **Product**
+- 一個 **Product** 的 **General Purchase Price** 由最新 **PriceSnapshot** 決定
 - 一個 **PriceSnapshot** 只屬於一個 **Product**
 - 一個 **SyncRun** 可以包含多個 **Product** 的同步處理
 - 一個 **SyncRun** 可以產生多筆同步錯誤
@@ -93,3 +104,5 @@ _Avoid_: source page date, write timestamp, event time
 - `missing_count` 曾可能被理解成累積缺席或失敗總數；已解決：它是連續缺席次數，重新被觀測到就歸零。
 - 由 detail 路徑先建立的 **Product** 不應被預設成已納入 catalog 追蹤；已解決：在第一次 **Catalog Sync** 命中前，**Catalog Visibility** 與 **Missing Count** 都是未知。
 - `snapshot_date` 曾可能與寫入時間或來源頁日期混用；已解決：它是台北時區下的日層級歸屬日期。
+- **Watched Product** 曾可能被理解成追蹤 **Concept** 或遊戲名稱；已解決：它只追蹤單一 **Product**。
+- **General Purchase Price** 曾可能混入 `FREE` 或 `PS_PLUS` 價格；已解決：它只來自最新 **PriceSnapshot** 的 `DISCOUNTED` 或 `PAID` 狀態。

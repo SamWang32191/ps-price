@@ -1,0 +1,45 @@
+{% extends "ps_price_web/base.html" %}
+{% load ps_price_web_extras %}
+
+{% block title %}Watchlist - PS Price{% endblock %}
+
+{% block content %}
+  <h1>Watchlist</h1>
+
+  {% if rows %}
+    <table>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>General Purchase Price</th>
+          <th>Target Price</th>
+          <th>Status</th>
+          <th>Snapshot Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <td>
+              <a href="{% url 'ps_price_web:product_detail' row.product.product_id %}">
+                {{ row.product.product_name }}
+              </a>
+            </td>
+            <td>{{ row.general_purchase_price_cents|money_twd }}</td>
+            <td>{{ row.target_price_cents|money_twd }}</td>
+            <td>{{ row.status }}</td>
+            <td>
+              {% if row.latest_snapshot %}
+                {{ row.latest_snapshot.snapshot_date|date:"Y-m-d" }}
+              {% else %}
+                -
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">目前沒有 Watched Product</p>
+  {% endif %}
+{% endblock %}
