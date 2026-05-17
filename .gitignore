@@ -6,3 +6,4 @@ tests/fixtures/live/
 .idea
 .worktrees/
 db.sqlite3
+.sisyphus/
