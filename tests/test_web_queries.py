@@ -6,7 +6,8 @@ from ps_price_web.formatting import format_money_twd, format_raw_json_list
 import pytest
 
 from ps_price_sync.models import PriceSnapshot, StoreProduct
-from ps_price_web.queries import get_latest_deals, get_product_detail
+from ps_price_web.models import WatchedProduct
+from ps_price_web.queries import WatchStatus, get_latest_deals, get_product_detail, get_watchlist_rows
 
 
 def create_product(
@@ -37,6 +38,10 @@ def create_snapshot(
         source_strategy_source="catalog",
         source_strategy_reason="catalog_price",
     )
+
+
+def watch(product: StoreProduct, target: int | None) -> WatchedProduct:
+    return WatchedProduct.objects.create(store_product=product, target_price_cents=target)
 
 
 def test_format_money_twd_formats_integer_cents() -> None:
@@ -154,3 +159,69 @@ def test_get_product_detail_handles_product_without_snapshots() -> None:
     assert detail.regular_low_amount_cents is None
     assert detail.regular_low_date is None
     assert detail.snapshots == []
+
+
+@pytest.mark.django_db
+def test_get_watchlist_rows_marks_discounted_product_as_reached() -> None:
+    product = create_product("P-WATCH-REACHED", "Reached")
+    create_snapshot(product, date(2026, 5, 16), "DISCOUNTED", base=100000, discounted=50000)
+    watch(product, 59000)
+
+    rows = get_watchlist_rows()
+
+    assert [(row.product.product_id, row.status) for row in rows] == [("P-WATCH-REACHED", WatchStatus.REACHED)]
+    assert rows[0].general_purchase_price_cents == 50000
+
+
+@pytest.mark.django_db
+def test_get_watchlist_rows_marks_paid_product_as_not_reached() -> None:
+    product = create_product("P-WATCH-NOT-REACHED", "Not Reached")
+    create_snapshot(product, date(2026, 5, 16), "PAID", base=90000)
+    watch(product, 59000)
+
+    rows = get_watchlist_rows()
+
+    assert rows[0].status == WatchStatus.NOT_REACHED
+    assert rows[0].general_purchase_price_cents == 90000
+
+
+@pytest.mark.django_db
+def test_get_watchlist_rows_excludes_ps_plus_and_free_from_general_purchase_price() -> None:
+    plus = create_product("P-WATCH-PLUS", "Plus")
+    free = create_product("P-WATCH-FREE", "Free")
+    create_snapshot(plus, date(2026, 5, 16), "PS_PLUS", base=90000, discounted=10000)
+    create_snapshot(free, date(2026, 5, 16), "FREE", base=0, discounted=0)
+    watch(plus, 59000)
+    watch(free, 59000)
+
+    rows = get_watchlist_rows()
+
+    assert [(row.product.product_id, row.status, row.general_purchase_price_cents) for row in rows] == [
+        ("P-WATCH-FREE", WatchStatus.NO_GENERAL_PURCHASE_PRICE, None),
+        ("P-WATCH-PLUS", WatchStatus.NO_GENERAL_PURCHASE_PRICE, None),
+    ]
+
+
+@pytest.mark.django_db
+def test_get_watchlist_rows_keeps_hidden_products_and_sorts_by_status_then_name() -> None:
+    reached = create_product("P-SORT-REACHED", "B Reached", is_visible=False)
+    not_reached = create_product("P-SORT-NOT", "A Not Reached")
+    no_target = create_product("P-SORT-NO-TARGET", "A No Target")
+    no_price = create_product("P-SORT-NO-PRICE", "A No Price")
+    create_snapshot(reached, date(2026, 5, 16), "DISCOUNTED", base=100000, discounted=50000)
+    create_snapshot(not_reached, date(2026, 5, 16), "PAID", base=90000)
+    create_snapshot(no_target, date(2026, 5, 16), "PAID", base=90000)
+    create_snapshot(no_price, date(2026, 5, 16), "UNKNOWN", base=None)
+    watch(reached, 59000)
+    watch(not_reached, 59000)
+    watch(no_target, None)
+    watch(no_price, 59000)
+
+    rows = get_watchlist_rows()
+
+    assert [(row.product.product_id, row.status) for row in rows] == [
+        ("P-SORT-REACHED", WatchStatus.REACHED),
+        ("P-SORT-NOT", WatchStatus.NOT_REACHED),
+        ("P-SORT-NO-TARGET", WatchStatus.NO_TARGET_PRICE),
+        ("P-SORT-NO-PRICE", WatchStatus.NO_GENERAL_PURCHASE_PRICE),
+    ]

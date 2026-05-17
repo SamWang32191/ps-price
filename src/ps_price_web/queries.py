@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from enum import StrEnum
 from datetime import date
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db.models import Max, Q
 
+from ps_price_web.models import WatchedProduct
 from ps_price_sync.models import PriceSnapshot, StoreProduct
 
 
@@ -14,6 +16,13 @@ class DealRow:
     product: StoreProduct
     snapshot: PriceSnapshot
     discount_percent: int
+
+
+class WatchStatus(StrEnum):
+    REACHED = "達標"
+    NOT_REACHED = "未達標"
+    NO_TARGET_PRICE = "未設定目標價"
+    NO_GENERAL_PURCHASE_PRICE = "無 General Purchase Price"
 
 
 @dataclass(frozen=True)
@@ -25,6 +34,16 @@ class ProductDetail:
     current_price_display: str | None
     regular_low_amount_cents: int | None
     regular_low_date: date | None
+
+
+@dataclass(frozen=True)
+class WatchlistRow:
+    watched_product: WatchedProduct
+    product: StoreProduct
+    latest_snapshot: PriceSnapshot | None
+    general_purchase_price_cents: int | None
+    target_price_cents: int | None
+    status: WatchStatus
 
 
 def _discount_percent(base_amount_cents: int, discounted_amount_cents: int) -> int:
@@ -93,6 +112,71 @@ def _current_snapshot_price(snapshot: PriceSnapshot | None) -> tuple[int | None,
     if snapshot.normalized_state == "PS_PLUS":
         return snapshot.plus_amount_cents, None
     return snapshot.base_amount_cents, snapshot.base_display
+
+
+def get_general_purchase_price(snapshot: PriceSnapshot | None) -> int | None:
+    if snapshot is None:
+        return None
+    if snapshot.normalized_state == "DISCOUNTED":
+        return snapshot.discounted_amount_cents
+    if snapshot.normalized_state == "PAID":
+        return snapshot.base_amount_cents
+    return None
+
+
+def get_watch_status(*, target_price_cents: int | None, general_purchase_price_cents: int | None) -> WatchStatus:
+    if target_price_cents is None:
+        return WatchStatus.NO_TARGET_PRICE
+    if general_purchase_price_cents is None:
+        return WatchStatus.NO_GENERAL_PURCHASE_PRICE
+    if general_purchase_price_cents <= target_price_cents:
+        return WatchStatus.REACHED
+    return WatchStatus.NOT_REACHED
+
+
+def get_watchlist_rows() -> list[WatchlistRow]:
+    watched_products = WatchedProduct.objects.select_related("store_product").all()
+    watched_product_by_store_product_id = {
+        watched_product.store_product_id: watched_product for watched_product in watched_products
+    }
+    latest_dates = PriceSnapshot.objects.filter(
+        store_product__in=watched_product_by_store_product_id
+    ).values("store_product_id").annotate(latest_date=Max("snapshot_date"))
+    latest_snapshot_by_store_product_id: dict[int, PriceSnapshot] = {}
+    for item in latest_dates:
+        store_product_id = item["store_product_id"]
+        latest_date = item["latest_date"]
+        latest_snapshot_by_store_product_id[store_product_id] = PriceSnapshot.objects.filter(
+            store_product_id=store_product_id, snapshot_date=latest_date
+        ).order_by("-id").first()
+
+    rows: list[WatchlistRow] = []
+    for watched_product in watched_product_by_store_product_id.values():
+        latest_snapshot = latest_snapshot_by_store_product_id.get(watched_product.store_product_id)
+        general_purchase_price_cents = get_general_purchase_price(latest_snapshot)
+        target_price_cents = watched_product.target_price_cents
+        status = get_watch_status(
+            target_price_cents=target_price_cents,
+            general_purchase_price_cents=general_purchase_price_cents,
+        )
+        rows.append(
+            WatchlistRow(
+                watched_product=watched_product,
+                product=watched_product.store_product,
+                latest_snapshot=latest_snapshot,
+                general_purchase_price_cents=general_purchase_price_cents,
+                target_price_cents=target_price_cents,
+                status=status,
+            )
+        )
+
+    status_order = {
+        WatchStatus.REACHED: 0,
+        WatchStatus.NOT_REACHED: 1,
+        WatchStatus.NO_TARGET_PRICE: 2,
+        WatchStatus.NO_GENERAL_PURCHASE_PRICE: 3,
+    }
+    return sorted(rows, key=lambda row: (status_order[row.status], row.product.product_name, row.product.product_id))
 
 
 def get_product_detail(product_id: str) -> ProductDetail:
