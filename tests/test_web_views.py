@@ -376,18 +376,55 @@ def test_product_detail_post_removes_watched_product_idempotently(client) -> Non
 
 
 @pytest.mark.django_db
-def test_product_detail_post_rejects_invalid_target_price_without_redirect(client) -> None:
+@pytest.mark.parametrize("target_price", ["590.5", "0", "-1"])
+def test_product_detail_post_rejects_invalid_target_price_without_redirect(client, target_price: str) -> None:
     product = _web_product("P-WATCH-INVALID", "Watch Invalid")
 
     response = client.post(
         reverse("ps_price_web:product_detail", kwargs={"product_id": product.product_id}),
-        {"action": "save_watch", "target_price": "590.5"},
+        {"action": "save_watch", "target_price": target_price},
     )
     content = response.content.decode()
 
     assert response.status_code == 200
     assert "target price 必須是正整數台幣元" in content
     assert not WatchedProduct.objects.filter(store_product=product).exists()
+
+
+@pytest.mark.django_db
+def test_product_detail_post_creates_empty_target_watch_when_none_exists(client) -> None:
+    product = _web_product("P-WATCH-CREATE-EMPTY", "Watch Create Empty")
+
+    response = client.post(
+        reverse("ps_price_web:product_detail", kwargs={"product_id": product.product_id}),
+        {"action": "save_watch", "target_price": ""},
+    )
+
+    assert response.status_code == 302
+    assert response["Location"] == reverse("ps_price_web:product_detail", kwargs={"product_id": product.product_id})
+    watched = WatchedProduct.objects.get(store_product=product)
+    assert watched.target_price_cents is None
+
+
+@pytest.mark.parametrize("target_price", ["590.5", "0", "-1"])
+@pytest.mark.django_db
+def test_product_detail_post_invalid_target_price_does_not_overwrite_existing_watch(
+    client,
+    target_price: str,
+) -> None:
+    product = _web_product("P-WATCH-INVALID-UPDATE", "Watch Invalid Update")
+    WatchedProduct.objects.create(store_product=product, target_price_cents=59000)
+
+    response = client.post(
+        reverse("ps_price_web:product_detail", kwargs={"product_id": product.product_id}),
+        {"action": "save_watch", "target_price": target_price},
+    )
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "target price 必須是正整數台幣元" in content
+    watched = WatchedProduct.objects.get(store_product=product)
+    assert watched.target_price_cents == 59000
 
 
 def test_twd_cents_template_filter_formats_integer_cents() -> None:
