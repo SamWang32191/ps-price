@@ -48,3 +48,11 @@ def test_watched_product_is_deleted_when_product_is_deleted() -> None:
     product.delete()
 
     assert not WatchedProduct.objects.filter(id=watched.id).exists()
+
+
+@pytest.mark.django_db
+def test_watched_product_rejects_zero_target_price() -> None:
+    product = _product()
+
+    with pytest.raises(IntegrityError):
+        WatchedProduct.objects.create(store_product=product, target_price_cents=0)
