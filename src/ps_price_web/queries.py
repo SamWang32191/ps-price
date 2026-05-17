@@ -34,6 +34,9 @@ class ProductDetail:
     current_price_display: str | None
     regular_low_amount_cents: int | None
     regular_low_date: date | None
+    watched_product: WatchedProduct | None
+    watch_status: WatchStatus | None
+    general_purchase_price_cents: int | None
 
 
 @dataclass(frozen=True)
@@ -194,6 +197,14 @@ def get_product_detail(product_id: str) -> ProductDetail:
         if regular_low_amount_cents is None or regular_amount < regular_low_amount_cents:
             regular_low_amount_cents = regular_amount
             regular_low_date = snapshot.snapshot_date
+    watched_product = WatchedProduct.objects.filter(store_product=product).first()
+    general_purchase_price_cents = get_general_purchase_price(latest_snapshot)
+    watch_status = None
+    if watched_product is not None:
+        watch_status = get_watch_status(
+            target_price_cents=watched_product.target_price_cents,
+            general_purchase_price_cents=general_purchase_price_cents,
+        )
 
     return ProductDetail(
         product=product,
@@ -203,4 +214,7 @@ def get_product_detail(product_id: str) -> ProductDetail:
         current_price_display=current_price_display,
         regular_low_amount_cents=regular_low_amount_cents,
         regular_low_date=regular_low_date,
+        watched_product=watched_product,
+        watch_status=watch_status,
+        general_purchase_price_cents=general_purchase_price_cents,
     )

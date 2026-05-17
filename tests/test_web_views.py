@@ -313,6 +313,83 @@ def test_product_detail_page_renders_zero_regular_low(client) -> None:
     assert "一般歷史最低價：NT$0" in content
 
 
+@pytest.mark.django_db
+def test_product_detail_page_renders_watchlist_form(client) -> None:
+    product = _web_product("P-WATCH-FORM", "Watch Form")
+
+    response = client.get(reverse("ps_price_web:product_detail", kwargs={"product_id": product.product_id}))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Watchlist" in content
+    assert 'name="target_price"' in content
+    assert 'name="action" value="save_watch"' in content
+
+
+@pytest.mark.django_db
+def test_product_detail_post_creates_watched_product_and_redirects(client) -> None:
+    product = _web_product("P-WATCH-CREATE", "Watch Create")
+
+    response = client.post(
+        reverse("ps_price_web:product_detail", kwargs={"product_id": product.product_id}),
+        {"action": "save_watch", "target_price": "590"},
+    )
+
+    assert response.status_code == 302
+    assert response["Location"] == reverse("ps_price_web:product_detail", kwargs={"product_id": product.product_id})
+    watched = WatchedProduct.objects.get(store_product=product)
+    assert watched.target_price_cents == 59000
+
+
+@pytest.mark.django_db
+def test_product_detail_post_updates_and_clears_target_price(client) -> None:
+    product = _web_product("P-WATCH-UPDATE", "Watch Update")
+    WatchedProduct.objects.create(store_product=product, target_price_cents=59000)
+
+    response = client.post(
+        reverse("ps_price_web:product_detail", kwargs={"product_id": product.product_id}),
+        {"action": "save_watch", "target_price": ""},
+    )
+
+    assert response.status_code == 302
+    watched = WatchedProduct.objects.get(store_product=product)
+    assert watched.target_price_cents is None
+
+
+@pytest.mark.django_db
+def test_product_detail_post_removes_watched_product_idempotently(client) -> None:
+    product = _web_product("P-WATCH-REMOVE", "Watch Remove")
+    WatchedProduct.objects.create(store_product=product, target_price_cents=59000)
+
+    first = client.post(
+        reverse("ps_price_web:product_detail", kwargs={"product_id": product.product_id}),
+        {"action": "remove_watch"},
+    )
+    second = client.post(
+        reverse("ps_price_web:product_detail", kwargs={"product_id": product.product_id}),
+        {"action": "remove_watch"},
+    )
+
+    assert first.status_code == 302
+    assert second.status_code == 302
+    assert not WatchedProduct.objects.filter(store_product=product).exists()
+
+
+@pytest.mark.django_db
+def test_product_detail_post_rejects_invalid_target_price_without_redirect(client) -> None:
+    product = _web_product("P-WATCH-INVALID", "Watch Invalid")
+
+    response = client.post(
+        reverse("ps_price_web:product_detail", kwargs={"product_id": product.product_id}),
+        {"action": "save_watch", "target_price": "590.5"},
+    )
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "target price 必須是正整數台幣元" in content
+    assert not WatchedProduct.objects.filter(store_product=product).exists()
+
+
 def test_twd_cents_template_filter_formats_integer_cents() -> None:
     from ps_price_sync.templatetags.price_format import twd_cents
 
