@@ -110,6 +110,19 @@ Open:
 
 The first UI milestone is read-only. It shows general discounted products and a thin product detail page; PS Plus prices are not mixed into regular discounts or regular historical lows.
 
+### Watchlist + target price
+
+After syncing data and starting the Django dev server, open:
+
+- `http://127.0.0.1:8000/watchlist/`
+- `http://127.0.0.1:8000/products/<product_id>/`
+
+Product detail pages can create, update, clear, and remove a **Watched Product**. Target price input uses integer TWD, for example `590`, and the app stores cents internally.
+
+Target price status uses **General Purchase Price** only: latest `DISCOUNTED` uses the discounted amount, latest `PAID` uses the base amount, and `PS_PLUS` or `FREE` does not count as reached.
+
+This is a single-user self-hosted write UI. It does not add authentication, authorization, sessions, or CSRF protection; do not expose the write UI as a public service without adding those protections first.
+
 ## Web dashboard usage
 
 The first read-only web UI provides:

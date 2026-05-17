@@ -45,6 +45,14 @@ def test_readme_mentions_django_sync_commands() -> None:
     assert "uv run python manage.py sync_ps_store --mode catalog-and-snapshot" in readme_content
 
 
+def test_readme_mentions_watchlist_ui() -> None:
+    readme_content = Path("README.md").read_text()
+
+    assert "http://127.0.0.1:8000/watchlist/" in readme_content
+    assert "Watched Product" in readme_content
+    assert "single-user" in readme_content
+
+
 def test_database_name_defaults_to_repo_sqlite(monkeypatch) -> None:
     monkeypatch.delenv("PS_PRICE_DATABASE_PATH", raising=False)
 
