@@ -225,3 +225,17 @@ def test_get_watchlist_rows_keeps_hidden_products_and_sorts_by_status_then_name(
         ("P-SORT-NO-TARGET", WatchStatus.NO_TARGET_PRICE),
         ("P-SORT-NO-PRICE", WatchStatus.NO_GENERAL_PURCHASE_PRICE),
     ]
+
+
+@pytest.mark.django_db
+def test_get_watchlist_rows_sorts_by_product_id_when_status_and_name_are_same() -> None:
+    same_name_a = create_product("P-SORT-ID-B", "Same Name")
+    same_name_b = create_product("P-SORT-ID-A", "Same Name")
+    create_snapshot(same_name_a, date(2026, 5, 16), "PAID", base=90000)
+    create_snapshot(same_name_b, date(2026, 5, 16), "PAID", base=90000)
+    watch(same_name_a, 59000)
+    watch(same_name_b, 59000)
+
+    rows = get_watchlist_rows()
+
+    assert [row.product.product_id for row in rows[:2]] == ["P-SORT-ID-A", "P-SORT-ID-B"]
